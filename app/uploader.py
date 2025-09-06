@@ -81,12 +81,7 @@ class SocketUploader:
 
         # Перехватываем все WebSocket'ы
         def on_websocket_created(ws):
-            self.logger.info(f"WebSocket создан: {ws.url}")
             self.websockets_list.append(ws)
-
-            # Подписываемся на сообщения
-            # ws.on("framereceived", lambda payload: self.logger.info(f"[←] {payload}"))
-            # ws.on("framesent", lambda payload: self.logger.info(f"[→] {payload}"))
 
         self.page.on("websocket", on_websocket_created)
 
@@ -178,3 +173,5 @@ class SocketUploader:
 
         # Слушаем сообщения от сервера
         self.logger.info("Начинаем прослушивание сообщений от сервера...")
+
+        await asyncio.sleep(100)

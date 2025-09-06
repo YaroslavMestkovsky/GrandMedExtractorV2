@@ -2,11 +2,20 @@ import asyncio
 import logging
 import os
 import time
-from typing import Dict, Any, Optional
-from playwright.async_api import async_playwright, Browser, BrowserContext, Page
-from pathlib import Path
-
 import yaml
+
+from pathlib import Path
+from typing import (
+    Dict,
+    Any,
+    Optional,
+)
+from playwright.async_api import (
+    async_playwright,
+    Browser,
+    BrowserContext,
+    Page,
+)
 
 
 class SocketUploader:

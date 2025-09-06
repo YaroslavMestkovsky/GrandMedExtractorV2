@@ -1,7 +1,6 @@
 import asyncio
-import logging
 
-from app.uploader import SocketUploader
+from uploader import SocketUploader
 
 
 async def main():

@@ -3,6 +3,8 @@ import logging
 import os
 import time
 import yaml
+import websockets
+import json
 
 from pathlib import Path
 from typing import (
@@ -32,9 +34,9 @@ class SocketUploader:
 
         # Пути к локальным браузерам
         self.browser_paths = {
-            'chromium': str(Path('browsers/chromium/chrome-win').absolute()),
-            'firefox': str(Path('browsers/firefox').absolute()),
-            'webkit': str(Path('browsers/webkit').absolute()),
+            "chromium": str(Path("browsers/chromium/chrome-win").absolute()),
+            "firefox": str(Path("browsers/firefox").absolute()),
+            "webkit": str(Path("browsers/webkit").absolute()),
         }
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:
@@ -48,21 +50,21 @@ class SocketUploader:
             Dict[str, Any]: Загруженная конфигурация
         """
 
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f)
 
     def _setup_logging(self) -> None:
         """Настройка логирования."""
 
-        log_config = self.config['logging']
+        log_config = self.config["logging"]
         log_params = {
-            'encoding': 'utf-8',
-            'level': getattr(logging, log_config['level']),
-            'format': '%(asctime)s - %(levelname)s - %(message)s',
+            "encoding": "utf-8",
+            "level": getattr(logging, log_config["level"]),
+            "format": "%(asctime)s - %(levelname)s - %(message)s",
         }
 
-        if log_config['log_in_file']:
-            log_params['filename'] = log_config['file']
+        if log_config["log_in_file"]:
+            log_params["filename"] = log_config["file"]
 
         logging.basicConfig(**log_params)
         self.logger = logging.getLogger(__name__)
@@ -71,11 +73,13 @@ class SocketUploader:
         """Агла!"""
 
         await self.setup_browser()
-        await self.page.goto(self.config['site']['url'])
-        self.logger.info(f"Переход на страницу {self.config['site']['url']}")
+        await self.page.goto(self.config["site"]["url"])
+
+        url = self.config["site"]["url"]
+        self.logger.info(f"Переход на страницу {url}")
 
         await self._log_in()
-        self._connect_to_socket()
+        await self._connect_to_socket()
 
     async def setup_browser(self) -> None:
         """Инициализация браузера и создание нового контекста."""
@@ -83,7 +87,7 @@ class SocketUploader:
         self.playwright = await async_playwright().start()
 
         # Используем локальный путь к браузеру
-        executable_path = os.path.join(self.browser_paths['chromium'], 'chrome.exe')
+        executable_path = os.path.join(self.browser_paths["chromium"], "chrome.exe")
 
         if not os.path.exists(executable_path):
             self.logger.warning(f"Локальный браузер не найден по пути {executable_path}")
@@ -111,23 +115,24 @@ class SocketUploader:
         self.logger.info("Браузер успешно инициализирован")
 
     async def _log_in(self):
-        for action in self.config['actions']:
-            action_type = action['type']
-            selector = action.get('selector', None)
-            description = action.get('description', '')
+        for action in self.config["actions"]:
+            action_type = action["type"]
+            selector = action.get("selector", None)
+            description = action.get("description", "")
 
             self.logger.info(f"Выполнение действия: {description}")
 
-            if action_type == 'click' and selector:
+            if action_type == "click" and selector:
                 await self.page.click(selector)
                 self.logger.info(f"\tВыполнено нажатие на элемент")
-            elif action_type == 'input' and selector:
-                value = action['value']
+            elif action_type == "input" and selector:
+                value = action["value"]
 
                 # Подстановка значений из конфигурации
-                if isinstance(value, str) and value.startswith('${'):
-                    config_path = value[2:-1].split('.')
+                if isinstance(value, str) and value.startswith("${"):
+                    config_path = value[2:-1].split(".")
                     value = self.config
+
                     for key in config_path:
                         value = value[key]
 
@@ -137,8 +142,28 @@ class SocketUploader:
 
                 self.logger.info(f"\tВведен текст {value} в элемент")
 
-    def _connect_to_socket(self):
+    async def _connect_to_socket(self):
         """Подключение к веб-сокету."""
+        
+        self.logger.info("Подключение к WebSocket...")
+        
+        try:
+            # Подключаемся к WebSocket серверу
+            async with websockets.connect(self.config["site"]["web-socket"]) as websocket:
+                self.logger.info("WebSocket успешно подключен")
+                
+                # Отправляем тестовое сообщение (опционально)
+                await websocket.send(json.dumps({"type": "ping"}))
+                
+                # Слушаем сообщения от сервера
+                async for message in websocket:
+                    self.logger.info(f"Получено сообщение от WebSocket: {message}")
 
-        time.sleep(500)
-        print('end')
+        except websockets.exceptions.ConnectionClosed as e:
+            self.logger.warning(f"WebSocket соединение закрыто: {e}")
+        except websockets.exceptions.InvalidURI as e:
+            self.logger.error(f"Неверный URI WebSocket: {e}")
+        except websockets.exceptions.WebSocketException as e:
+            self.logger.error(f"Ошибка WebSocket: {e}")
+        except Exception as e:
+            self.logger.error(f"Неожиданная ошибка при подключении к WebSocket: {e}")

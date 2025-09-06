@@ -32,9 +32,9 @@ class SocketUploader:
 
         # Пути к локальным браузерам
         self.browser_paths = {
-            'chromium': str(Path('../browsers/chromium/chrome-win').absolute()),
-            'firefox': str(Path('../browsers/firefox').absolute()),
-            'webkit': str(Path('../browsers/webkit').absolute()),
+            'chromium': str(Path('browsers/chromium/chrome-win').absolute()),
+            'firefox': str(Path('browsers/firefox').absolute()),
+            'webkit': str(Path('browsers/webkit').absolute()),
         }
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:

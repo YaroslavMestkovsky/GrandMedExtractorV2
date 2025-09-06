@@ -2,9 +2,9 @@ import asyncio
 import logging
 import os
 import time
+
 import yaml
 import websockets
-import json
 
 from pathlib import Path
 from typing import (
@@ -28,6 +28,7 @@ class SocketUploader:
         self._setup_logging()
 
         self.playwright = None
+        self.websockets_list: list = []
         self.browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
@@ -77,6 +78,17 @@ class SocketUploader:
 
         url = self.config["site"]["url"]
         self.logger.info(f"Переход на страницу {url}")
+
+        # Перехватываем все WebSocket'ы
+        def on_websocket_created(ws):
+            self.logger.info(f"WebSocket создан: {ws.url}")
+            self.websockets_list.append(ws)
+
+            # Подписываемся на сообщения
+            ws.on("framereceived", lambda payload: self.logger.info(f"[←] {payload}"))
+            ws.on("framesent", lambda payload: self.logger.info(f"[→] {payload}"))
+
+        self.page.on("websocket", on_websocket_created)
 
         await self._log_in()
         # Затем подключаемся к целевому серверу
@@ -145,61 +157,53 @@ class SocketUploader:
 
     async def _connect_to_socket(self):
         """Подключение к веб-сокету."""
-        
+
+        for ws in self.websockets_list:
+            print(ws)
+
+        time.sleep(50)
         # Получаем настройки WebSocket из конфигурации
-        websocket_url = self.config["site"]["web-socket"]
-        max_messages = 5
-        message_timeout = 30
-        
-        self.logger.info(f"Подключение к WebSocket: {websocket_url}")
-
-        try:
-            # Получаем куки из браузера
-            cookies = await self.context.cookies()
-            cookie_header = "; ".join([f"{cookie['name']}={cookie['value']}" for cookie in cookies])
-            
-            # Создаем заголовки с куками
-            extra_headers = {
-                "Cookie": cookie_header
-            }
-            
-            self.logger.info(f"Передаем куки в WebSocket: {cookie_header}")
-
-            # Подключаемся к WebSocket серверу с куками
-            async with websockets.connect(
-                websocket_url,
-                extra_headers=extra_headers,
-                ping_interval=20,
-                ping_timeout=10,
-                close_timeout=10,
-            ) as websocket:
-                self.logger.info("WebSocket успешно подключен")
- 
-                # Слушаем сообщения от сервера
-                self.logger.info("Начинаем прослушивание сообщений от сервера...")
-                message_count = 0
- 
-                while True:
-                    try:
-                        # Ждем сообщение с настраиваемым таймаутом
-                        message = await asyncio.wait_for(websocket.recv(), timeout=message_timeout)
-                        message_count += 1
-                        self.logger.info(f"Сообщение #{message_count} от WebSocket: {message}")
-                        
-                        # Если получили достаточно сообщений, выходим
-                        if message_count >= max_messages:
-                            self.logger.info(f"Получено {max_messages} сообщений, завершаем прослушивание")
-                            break
- 
-                    except asyncio.TimeoutError:
-                        self.logger.info(f"Таймаут ожидания сообщений ({message_timeout} секунд), завершаем прослушивание")
-                        break
-
-        except websockets.exceptions.ConnectionClosed as e:
-            self.logger.warning(f"WebSocket соединение закрыто: код={e.code}, причина='{e.reason}'")
-        except websockets.exceptions.InvalidURI as e:
-            self.logger.error(f"Неверный URI WebSocket: {e}")
-        except websockets.exceptions.WebSocketException as e:
-            self.logger.error(f"Ошибка WebSocket: {e}")
-        except Exception as e:
-            self.logger.error(f"Неожиданная ошибка при подключении к WebSocket: {e}")
+        # websocket_url = self.config["site"]["web-socket"]
+        # max_messages = 5
+        # message_timeout = 30
+        #
+        # self.logger.info(f"Подключение к WebSocket: {websocket_url}")
+        #
+        # try:
+        #     # Подключаемся к WebSocket серверу
+        #     async with websockets.connect(
+        #         websocket_url,
+        #         ping_interval=20,
+        #         ping_timeout=10,
+        #         close_timeout=10,
+        #     ) as websocket:
+        #         self.logger.info("WebSocket успешно подключен")
+        #
+        #         # Слушаем сообщения от сервера
+        #         self.logger.info("Начинаем прослушивание сообщений от сервера...")
+        #         message_count = 0
+        #
+        #         while True:
+        #             try:
+        #                 # Ждем сообщение с настраиваемым таймаутом
+        #                 message = await asyncio.wait_for(websocket.recv(), timeout=message_timeout)
+        #                 message_count += 1
+        #                 self.logger.info(f"Сообщение #{message_count} от WebSocket: {message}")
+        #
+        #                 # Если получили достаточно сообщений, выходим
+        #                 if message_count >= max_messages:
+        #                     self.logger.info(f"Получено {max_messages} сообщений, завершаем прослушивание")
+        #                     break
+        #
+        #             except asyncio.TimeoutError:
+        #                 self.logger.info(f"Таймаут ожидания сообщений ({message_timeout} секунд), завершаем прослушивание")
+        #                 break
+        #
+        # except websockets.exceptions.ConnectionClosed as e:
+        #     self.logger.warning(f"WebSocket соединение закрыто: код={e.code}, причина='{e.reason}'")
+        # except websockets.exceptions.InvalidURI as e:
+        #     self.logger.error(f"Неверный URI WebSocket: {e}")
+        # except websockets.exceptions.WebSocketException as e:
+        #     self.logger.error(f"Ошибка WebSocket: {e}")
+        # except Exception as e:
+        #     self.logger.error(f"Неожиданная ошибка при подключении к WebSocket: {e}")

@@ -79,6 +79,11 @@ class SocketUploader:
         self.logger.info(f"Переход на страницу {url}")
 
         await self._log_in()
+        
+        # Сначала тестируем подключение к публичному серверу
+        await self._test_websocket_connection()
+        
+        # Затем подключаемся к целевому серверу
         await self._connect_to_socket()
 
     async def setup_browser(self) -> None:
@@ -145,25 +150,78 @@ class SocketUploader:
     async def _connect_to_socket(self):
         """Подключение к веб-сокету."""
         
-        self.logger.info("Подключение к WebSocket...")
+        websocket_url = self.config["site"]["web-socket"]
+        self.logger.info(f"Подключение к WebSocket: {websocket_url}")
         
         try:
-            # Подключаемся к WebSocket серверу
-            async with websockets.connect(self.config["site"]["web-socket"]) as websocket:
+            # Подключаемся к WebSocket серверу с дополнительными параметрами
+            async with websockets.connect(
+                websocket_url,
+                ping_interval=20,  # Отправляем ping каждые 20 секунд
+                ping_timeout=10,   # Ждем pong 10 секунд
+                close_timeout=10,   # Ждем закрытия 10 секунд
+            ) as websocket:
                 self.logger.info("WebSocket успешно подключен")
                 
-                # Отправляем тестовое сообщение (опционально)
-                await websocket.send(json.dumps({"type": "ping"}))
+                # Отправляем тестовое сообщение
+                ping_message = json.dumps({"type": "ping", "timestamp": time.time()})
+                await websocket.send(ping_message)
+                self.logger.info(f"Отправлено ping сообщение: {ping_message}")
                 
-                # Слушаем сообщения от сервера
-                async for message in websocket:
-                    self.logger.info(f"Получено сообщение от WebSocket: {message}")
+                # Ждем ответ в течение 5 секунд
+                try:
+                    response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+                    self.logger.info(f"Получен ответ от сервера: {response}")
+                except asyncio.TimeoutError:
+                    self.logger.warning("Таймаут ожидания ответа от сервера (5 секунд)")
+                
+                # Слушаем сообщения от сервера с таймаутом
+                self.logger.info("Начинаем прослушивание сообщений от сервера...")
+                message_count = 0
+                
+                while True:
+                    try:
+                        # Ждем сообщение с таймаутом 30 секунд
+                        message = await asyncio.wait_for(websocket.recv(), timeout=30.0)
+                        message_count += 1
+                        self.logger.info(f"Сообщение #{message_count} от WebSocket: {message}")
+                        
+                        # Если получили 5 сообщений, выходим (для демонстрации)
+                        if message_count >= 5:
+                            self.logger.info("Получено достаточно сообщений, завершаем прослушивание")
+                            break
+                            
+                    except asyncio.TimeoutError:
+                        self.logger.info("Таймаут ожидания сообщений (30 секунд), завершаем прослушивание")
+                        break
 
         except websockets.exceptions.ConnectionClosed as e:
-            self.logger.warning(f"WebSocket соединение закрыто: {e}")
+            self.logger.warning(f"WebSocket соединение закрыто: код={e.code}, причина='{e.reason}'")
         except websockets.exceptions.InvalidURI as e:
             self.logger.error(f"Неверный URI WebSocket: {e}")
         except websockets.exceptions.WebSocketException as e:
             self.logger.error(f"Ошибка WebSocket: {e}")
         except Exception as e:
             self.logger.error(f"Неожиданная ошибка при подключении к WebSocket: {e}")
+    
+    async def _test_websocket_connection(self):
+        """Тестирование подключения к публичному WebSocket серверу."""
+        
+        test_url = "wss://echo.websocket.org"
+        self.logger.info(f"Тестирование подключения к публичному WebSocket: {test_url}")
+        
+        try:
+            async with websockets.connect(test_url) as websocket:
+                self.logger.info("Тестовое WebSocket подключение успешно")
+                
+                # Отправляем тестовое сообщение
+                test_message = "Hello WebSocket!"
+                await websocket.send(test_message)
+                self.logger.info(f"Отправлено тестовое сообщение: {test_message}")
+                
+                # Ждем ответ
+                response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+                self.logger.info(f"Получен ответ от тестового сервера: {response}")
+                
+        except Exception as e:
+            self.logger.error(f"Ошибка тестового подключения: {e}")

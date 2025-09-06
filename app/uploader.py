@@ -164,51 +164,17 @@ class SocketUploader:
         """Подключение к веб-сокету."""
 
         websocket_url = self.config["site"]["web-socket"]
+        ws = (ws for ws in self.websockets_list if ws.url == websocket_url).__next__()
 
-        if not websocket_url in [ws.url for ws in self.websockets_list]:
+        if not ws:
             self.logger.error("Не найден веб-сокет.")
             raise Exception
 
-        max_messages = 50
-        message_timeout = 30
+        self.logger.info("WebSocket успешно подключен")
 
-        self.logger.info(f"Подключение к WebSocket: {websocket_url}")
+        # Подключаемся к WebSocket серверу
+        ws.on("framereceived", lambda payload: self.logger.info(f"[←] {payload}"))
+        ws.on("framesent", lambda payload: self.logger.info(f"[→] {payload}"))
 
-        try:
-            # Подключаемся к WebSocket серверу
-            async with websockets.connect(
-                websocket_url,
-                ping_interval=20,
-                ping_timeout=10,
-                close_timeout=10,
-            ) as websocket:
-                self.logger.info("WebSocket успешно подключен")
-
-                # Слушаем сообщения от сервера
-                self.logger.info("Начинаем прослушивание сообщений от сервера...")
-                message_count = 0
-
-                while True:
-                    try:
-                        # Ждем сообщение с настраиваемым таймаутом
-                        message = await asyncio.wait_for(websocket.recv(), timeout=message_timeout)
-                        message_count += 1
-                        self.logger.info(f"Сообщение #{message_count} от WebSocket: {message}")
-
-                        # Если получили достаточно сообщений, выходим
-                        if message_count >= max_messages:
-                            self.logger.info(f"Получено {max_messages} сообщений, завершаем прослушивание")
-                            break
-
-                    except asyncio.TimeoutError:
-                        self.logger.info(f"Таймаут ожидания сообщений ({message_timeout} секунд), завершаем прослушивание")
-                        break
-
-        except websockets.exceptions.ConnectionClosed as e:
-            self.logger.warning(f"WebSocket соединение закрыто: код={e.code}, причина='{e.reason}'")
-        except websockets.exceptions.InvalidURI as e:
-            self.logger.error(f"Неверный URI WebSocket: {e}")
-        except websockets.exceptions.WebSocketException as e:
-            self.logger.error(f"Ошибка WebSocket: {e}")
-        except Exception as e:
-            self.logger.error(f"Неожиданная ошибка при подключении к WebSocket: {e}")
+        # Слушаем сообщения от сервера
+        self.logger.info("Начинаем прослушивание сообщений от сервера...")

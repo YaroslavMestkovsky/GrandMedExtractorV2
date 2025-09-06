@@ -154,9 +154,21 @@ class SocketUploader:
         self.logger.info(f"Подключение к WebSocket: {websocket_url}")
 
         try:
-            # Подключаемся к WebSocket серверу
+            # Получаем куки из браузера
+            cookies = await self.context.cookies()
+            cookie_header = "; ".join([f"{cookie['name']}={cookie['value']}" for cookie in cookies])
+            
+            # Создаем заголовки с куками
+            extra_headers = {
+                "Cookie": cookie_header
+            }
+            
+            self.logger.info(f"Передаем куки в WebSocket: {cookie_header}")
+
+            # Подключаемся к WebSocket серверу с куками
             async with websockets.connect(
                 websocket_url,
+                extra_headers=extra_headers,
                 ping_interval=20,
                 ping_timeout=10,
                 close_timeout=10,

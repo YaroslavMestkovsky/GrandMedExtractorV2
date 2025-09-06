@@ -85,8 +85,8 @@ class SocketUploader:
             self.websockets_list.append(ws)
 
             # Подписываемся на сообщения
-            ws.on("framereceived", lambda payload: self.logger.info(f"[←] {payload}"))
-            ws.on("framesent", lambda payload: self.logger.info(f"[→] {payload}"))
+            # ws.on("framereceived", lambda payload: self.logger.info(f"[←] {payload}"))
+            # ws.on("framesent", lambda payload: self.logger.info(f"[→] {payload}"))
 
         self.page.on("websocket", on_websocket_created)
 
@@ -154,6 +154,9 @@ class SocketUploader:
                 await self.page.type(selector, value)
 
                 self.logger.info(f"\tВведен текст {value} в элемент")
+
+        # Скидываем все веб-сокеты без авторизации
+        self.websockets_list = []
 
     async def _connect_to_socket(self):
         """Подключение к веб-сокету."""

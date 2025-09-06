@@ -132,8 +132,13 @@ class SocketUploader:
             action_type = action["type"]
             selector = action.get("selector", None)
             description = action.get("description", "")
+            reset_wss = action.get("reset_wss", "")
 
             self.logger.info(f"Выполнение действия: {description}")
+
+            if reset_wss:
+                # Скидываем все веб-сокеты без авторизации
+                self.websockets_list = []
 
             if action_type == "click" and selector:
                 await self.page.click(selector)
@@ -155,58 +160,55 @@ class SocketUploader:
 
                 self.logger.info(f"\tВведен текст {value} в элемент")
 
-        # Скидываем все веб-сокеты без авторизации
-        self.websockets_list = []
-
     async def _connect_to_socket(self):
         """Подключение к веб-сокету."""
 
-        for ws in self.websockets_list:
-            print(ws)
+        websocket_url = self.config["site"]["web-socket"]
 
-        time.sleep(50)
-        # Получаем настройки WebSocket из конфигурации
-        # websocket_url = self.config["site"]["web-socket"]
-        # max_messages = 5
-        # message_timeout = 30
-        #
-        # self.logger.info(f"Подключение к WebSocket: {websocket_url}")
-        #
-        # try:
-        #     # Подключаемся к WebSocket серверу
-        #     async with websockets.connect(
-        #         websocket_url,
-        #         ping_interval=20,
-        #         ping_timeout=10,
-        #         close_timeout=10,
-        #     ) as websocket:
-        #         self.logger.info("WebSocket успешно подключен")
-        #
-        #         # Слушаем сообщения от сервера
-        #         self.logger.info("Начинаем прослушивание сообщений от сервера...")
-        #         message_count = 0
-        #
-        #         while True:
-        #             try:
-        #                 # Ждем сообщение с настраиваемым таймаутом
-        #                 message = await asyncio.wait_for(websocket.recv(), timeout=message_timeout)
-        #                 message_count += 1
-        #                 self.logger.info(f"Сообщение #{message_count} от WebSocket: {message}")
-        #
-        #                 # Если получили достаточно сообщений, выходим
-        #                 if message_count >= max_messages:
-        #                     self.logger.info(f"Получено {max_messages} сообщений, завершаем прослушивание")
-        #                     break
-        #
-        #             except asyncio.TimeoutError:
-        #                 self.logger.info(f"Таймаут ожидания сообщений ({message_timeout} секунд), завершаем прослушивание")
-        #                 break
-        #
-        # except websockets.exceptions.ConnectionClosed as e:
-        #     self.logger.warning(f"WebSocket соединение закрыто: код={e.code}, причина='{e.reason}'")
-        # except websockets.exceptions.InvalidURI as e:
-        #     self.logger.error(f"Неверный URI WebSocket: {e}")
-        # except websockets.exceptions.WebSocketException as e:
-        #     self.logger.error(f"Ошибка WebSocket: {e}")
-        # except Exception as e:
-        #     self.logger.error(f"Неожиданная ошибка при подключении к WebSocket: {e}")
+        if not websocket_url in [ws.url for ws in self.websockets_list]:
+            self.logger.error("Не найден веб-сокет.")
+            raise Exception
+
+        max_messages = 50
+        message_timeout = 30
+
+        self.logger.info(f"Подключение к WebSocket: {websocket_url}")
+
+        try:
+            # Подключаемся к WebSocket серверу
+            async with websockets.connect(
+                websocket_url,
+                ping_interval=20,
+                ping_timeout=10,
+                close_timeout=10,
+            ) as websocket:
+                self.logger.info("WebSocket успешно подключен")
+
+                # Слушаем сообщения от сервера
+                self.logger.info("Начинаем прослушивание сообщений от сервера...")
+                message_count = 0
+
+                while True:
+                    try:
+                        # Ждем сообщение с настраиваемым таймаутом
+                        message = await asyncio.wait_for(websocket.recv(), timeout=message_timeout)
+                        message_count += 1
+                        self.logger.info(f"Сообщение #{message_count} от WebSocket: {message}")
+
+                        # Если получили достаточно сообщений, выходим
+                        if message_count >= max_messages:
+                            self.logger.info(f"Получено {max_messages} сообщений, завершаем прослушивание")
+                            break
+
+                    except asyncio.TimeoutError:
+                        self.logger.info(f"Таймаут ожидания сообщений ({message_timeout} секунд), завершаем прослушивание")
+                        break
+
+        except websockets.exceptions.ConnectionClosed as e:
+            self.logger.warning(f"WebSocket соединение закрыто: код={e.code}, причина='{e.reason}'")
+        except websockets.exceptions.InvalidURI as e:
+            self.logger.error(f"Неверный URI WebSocket: {e}")
+        except websockets.exceptions.WebSocketException as e:
+            self.logger.error(f"Ошибка WebSocket: {e}")
+        except Exception as e:
+            self.logger.error(f"Неожиданная ошибка при подключении к WebSocket: {e}")

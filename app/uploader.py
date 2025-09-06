@@ -21,7 +21,7 @@ from playwright.async_api import (
 class SocketUploader:
     """Загрузка отчетов через веб-сокет."""
 
-    def __init__(self, config_path: str = "config.yaml"):
+    def __init__(self, config_path: str = "app/config.yaml"):
         self.config = self._load_config(config_path)
         self._setup_logging()
 

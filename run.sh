@@ -1,8 +1,9 @@
 #!/bin/bash
 
 # Пути относительно текущей директории
-VENV_RELATIVE_PATH="env/Scripts/Activate"  # Для Windows (venv\Scripts\activate)
+VENV_RELATIVE_PATH="venv/Scripts/Activate"  # Для Windows (venv\Scripts\activate)
 PYTHON_SCRIPT="app/script.py"                  # Python-файл
+REQUIREMENTS="requirements.txt"                  # Файл зависимостей
 
 # Полный абсолютный путь к текущей директории (для отладки)
 CURRENT_DIR=$(pwd)
@@ -32,6 +33,10 @@ if ! command -v python &> /dev/null; then
     sleep 10  # Задержка перед закрытием
     exit 1
 fi
+
+# Проверка и установка зависимостей
+echo "Проверка зависимостей..."
+pip install -q -r "$REQUIREMENTS"
 
 # Запуск Python-файла
 echo "Запуск Python-файла $PYTHON_SCRIPT..."

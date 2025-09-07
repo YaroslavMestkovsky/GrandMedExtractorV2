@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 import time
-from datetime import datetime
 
 import yaml
 import websockets
@@ -18,14 +17,13 @@ from playwright.async_api import (
     Browser,
     BrowserContext,
     Page,
-    Download,
 )
 
 
 class SocketUploader:
     """Загрузка отчетов через веб-сокет."""
 
-    def __init__(self, config_path: str = "config.yaml"):
+    def __init__(self, config_path: str = "app/config.yaml"):
         self.config = self._load_config(config_path)
         self._setup_logging()
 
@@ -35,17 +33,12 @@ class SocketUploader:
         self.browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
-        
-        # Отслеживания скачивания
-        self.download_path: Optional[Path] = None
-        self.downloaded_file: Optional[Path] = None
-        self.download_complete = asyncio.Event()
 
         # Пути к локальным браузерам
         self.browser_paths = {
-            "chromium": str(Path("../browsers/chromium/chrome-win").absolute()),
-            "firefox": str(Path("../browsers/firefox").absolute()),
-            "webkit": str(Path("../browsers/webkit").absolute()),
+            "chromium": str(Path("browsers/chromium/chrome-win").absolute()),
+            "firefox": str(Path("browsers/firefox").absolute()),
+            "webkit": str(Path("browsers/webkit").absolute()),
         }
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:
@@ -117,12 +110,7 @@ class SocketUploader:
                 args=["--ignore-certificate-errors"],
             )
 
-        # Папка для скачивания
-        download_dir = Path(self.config["download"]["output_dir"])
-        download_dir.mkdir(exist_ok=True)
-        self.download_path = download_dir.absolute()
-
-        # Контекст с автоматическим скачиванием файлов
+        # Настраиваем контекст с отключенным автоматическим открытием файлов
         self.context = await self.browser.new_context(
             no_viewport=True,
             accept_downloads=True,
@@ -135,16 +123,7 @@ class SocketUploader:
         def on_websocket_created(ws):
             self.websockets_list.append(ws)
 
-        # Обработчик скачивания файлов
-        def on_download(download: Download):
-            self.logger.info(f"Начато скачивание файла: {download.suggested_filename}")
-            # В Playwright файл скачивается во временную папку, 
-            # мы получим его путь после завершения скачивания
-            self.downloaded_file = download.path()
-            self.download_complete.set()
-
         self.page.on("websocket", on_websocket_created)
-        self.page.on("download", on_download)
         self.logger.info("Браузер успешно инициализирован")
 
     async def _log_in(self):
@@ -192,65 +171,13 @@ class SocketUploader:
 
         self.logger.info("WebSocket успешно подключен")
 
-    async def _process_downloaded_file(self) -> Optional[Path]:
-        """
-        Обработка скачанного файла: переименование и перемещение.
-        
-        Returns:
-            Optional[Path]: Путь к обработанному файлу или None, если файл не найден
-        """
-        if not self.downloaded_file or not Path(self.downloaded_file).exists():
-            self.logger.warning("Скачанный файл не найден")
-            return None
-            
-        # Генерируем новое имя файла на основе шаблона
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename_template = self.config["download"]["filename_template"]
-        new_filename = filename_template.format(timestamp=timestamp)
-        
-        # Создаем новый путь для файла
-        new_file_path = self.download_path / new_filename
-        
-        try:
-            # Копируем файл из временной папки в нашу папку с новым именем
-            import shutil
-            shutil.copy2(self.downloaded_file, new_file_path)
-            self.logger.info(f"Файл успешно скопирован: {new_file_path}")
-            return new_file_path
-        except Exception as e:
-            self.logger.error(f"Ошибка при копировании файла: {e}")
-            return None
-
     async def _upload_users(self):
         """Запуск формирования отчета по юзерам."""
-
-        # Сбрасываем флаг скачивания
-        self.download_complete.clear()
-        self.downloaded_file = None
 
         for action in self.config["users_actions"]:
             await self.click(action)
 
-        # Ждем завершения скачивания файла
-        self.logger.info("Ожидание завершения скачивания файла...")
-        try:
-            # Ждем максимум 60 секунд
-            await asyncio.wait_for(self.download_complete.wait(), timeout=60.0)
-            
-            # Обрабатываем скачанный файл
-            processed_file = await self._process_downloaded_file()
-            if processed_file:
-                self.logger.info(f"Отчет успешно сохранен: {processed_file}")
-            else:
-                self.logger.error("Не удалось обработать скачанный файл")
-                
-        except asyncio.TimeoutError:
-            self.logger.error("Таймаут ожидания скачивания файла")
-        except Exception as e:
-            self.logger.error(f"Ошибка при ожидании скачивания: {e}")
-
-        # Дополнительное ожидание для завершения всех операций
-        await asyncio.sleep(5)
+        await asyncio.sleep(100)
 
     async def click(self, action):
         self.logger.info(f"Клик: {action['elem']}")

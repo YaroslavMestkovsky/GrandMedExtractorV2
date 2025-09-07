@@ -25,7 +25,7 @@ from playwright.async_api import (
 class SocketUploader:
     """Загрузка отчетов через веб-сокет."""
 
-    def __init__(self, config_path: str = "config.yaml"):
+    def __init__(self, config_path: str = "app/config.yaml"):
         self.config = self._load_config(config_path)
         self._setup_logging()
 
@@ -43,9 +43,9 @@ class SocketUploader:
 
         # Пути к локальным браузерам
         self.browser_paths = {
-            "chromium": str(Path("../browsers/chromium/chrome-win").absolute()),
-            "firefox": str(Path("../browsers/firefox").absolute()),
-            "webkit": str(Path("../browsers/webkit").absolute()),
+            "chromium": str(Path("browsers/chromium/chrome-win").absolute()),
+            "firefox": str(Path("browsers/firefox").absolute()),
+            "webkit": str(Path("browsers/webkit").absolute()),
         }
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:

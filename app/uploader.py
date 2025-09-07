@@ -127,7 +127,7 @@ class SocketUploader:
         self.logger.info("Браузер успешно инициализирован")
 
     async def _log_in(self):
-        for action in self.config["actions"]:
+        for action in self.config["log_in_actions"]:
             action_type = action["type"]
             selector = action.get("selector", None)
             description = action.get("description", "")
@@ -173,34 +173,43 @@ class SocketUploader:
 
     async def _upload_users(self):
         """
-        Автоматически:
-        1. Открывает меню "Отчёты"
-        2. Выбирает пункт "Сформировать отчёт"
-        3. Нажимает "Запустить" в модальном окне
-        4. Скачивает файл
+        Что нужно сделать, чтобы запустилось формирования отчета:
+        1. {Action: 'OnButtonListClick', buttonid: 'Z11.01', pedal: '', mousebutton: 'left'}
+        2. {Action: 'toolbuttonclick', Id: 'Z26', Meth: '$$onButtonClickMethod^ClientApi', Button: 0, Pedal: 0}
+        3. Q6_M2woZXprintSP201_172  {Action: 'menuitemclick'}
+        4. {
+            "Action": "treecellclick",
+            "Sender": "T2",
+            "Index": 2,
+            "ColNum": 1,
+            "AreaType": 9,
+            "Button": 1,
+            "Shift": 0,
+            "datastr": "-1 -1 3",
+            "dataint": 0,
+            "FactCol": 1,
+            "pixX": 115,
+            "pixY": 14,
+            "TopIndex": 0
+        }
+        5. Q13_M2wZ35  {Action: 'menuitemclick'}
+        6. {Action: 'toolbuttonclick', Id: 'Z2', Meth: '$$onButtonClickMethod^ClientApi', Button: 0, Pedal: 0}
         """
-        # 1. Нажимаем на кнопку с Id='Z26' (панель Q6.TBar0)
-        await self.page.click("css=[path='Q6.TBar0']")
 
-        # 2. Ждём и кликаем по пункту меню (по тексту — уточни точное название)
-        await self.page.wait_for_selector("text=Сформировать отчёт", timeout=5000)
-        await self.page.click("text=Сформировать отчёт")
+        for action in self.config["users_actions"]:
+            await self.click(action)
 
-        # 3. Ждём появления модального окна (любое с кнопкой Z2)
-        #    Можно ждать по кнопке "Запустить" или по любому элементу окна
-        await self.page.wait_for_selector("css=[path$='.TBarFind']", timeout=10000)  # Q13.T2.TBarFind
+        await asyncio.sleep(100)
 
-        # 4. Ожидаем скачивание
-        async with self.page.expect_download() as download_info:
-            # Нажимаем "Запустить"
-            await self.page.click("css=[path$='.TBarFind']")
+    async def click(self, action):
+        if text_to_search := action.get("text_to_search"):
+            inner_text = await self.page.locator(action["id"]).inner_text()
 
-            # Ждём, пока начнётся скачивание
-            download = await download_info.value
+            if not text_to_search in inner_text:
+                self.logger.error(f"Не найден элемент {text_to_search}")
+                raise Exception
 
-            # Сохраняем файл
-            filepath = f"./reports/{download.suggested_filename}"
-            await download.save_as(filepath)
-            print(f"Файл отчёта успешно сохранён: {filepath}")
-
-        return filepath
+            locator = self.page.locator(f"{action['root_node']} >> text={text_to_search}")
+            await locator.click()
+        else:
+            await self.page.click(action["id"])

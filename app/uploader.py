@@ -27,6 +27,7 @@ class SocketUploader:
         self.config = self._load_config(config_path)
         self._setup_logging()
 
+        self.web_socket = None
         self.playwright = None
         self.websockets_list: list = []
         self.browser: Optional[Browser] = None
@@ -79,15 +80,12 @@ class SocketUploader:
         url = self.config["site"]["url"]
         self.logger.info(f"Переход на страницу {url}")
 
-        # Перехватываем все WebSocket'ы
-        def on_websocket_created(ws):
-            self.websockets_list.append(ws)
-
-        self.page.on("websocket", on_websocket_created)
-
         await self._log_in()
-        # Затем подключаемся к целевому серверу
         await self._connect_to_socket()
+
+        # self._upload_analytics()
+        # self._upload_specialists()
+        await self._upload_users()
 
     async def setup_browser(self) -> None:
         """Инициализация браузера и создание нового контекста."""
@@ -120,6 +118,12 @@ class SocketUploader:
         )
         # Устанавливаем обработчики событий
         self.page = await self.context.new_page()
+
+        # Перехватываем все WebSocket'ы
+        def on_websocket_created(ws):
+            self.websockets_list.append(ws)
+
+        self.page.on("websocket", on_websocket_created)
         self.logger.info("Браузер успешно инициализирован")
 
     async def _log_in(self):
@@ -159,19 +163,44 @@ class SocketUploader:
         """Подключение к веб-сокету."""
 
         websocket_url = self.config["site"]["web-socket"]
-        ws = (ws for ws in self.websockets_list if ws.url == websocket_url).__next__()
+        self.web_socket = (ws for ws in self.websockets_list if ws.url == websocket_url).__next__()
 
-        if not ws:
+        if not self.web_socket:
             self.logger.error("Не найден веб-сокет.")
             raise Exception
 
         self.logger.info("WebSocket успешно подключен")
 
-        # Подключаемся к WebSocket серверу
-        ws.on("framereceived", lambda payload: self.logger.info(f"[←] {payload}"))
-        ws.on("framesent", lambda payload: self.logger.info(f"[→] {payload}"))
+    async def _upload_users(self):
+        """
+        Автоматически:
+        1. Открывает меню "Отчёты"
+        2. Выбирает пункт "Сформировать отчёт"
+        3. Нажимает "Запустить" в модальном окне
+        4. Скачивает файл
+        """
+        # 1. Нажимаем на кнопку с Id='Z26' (панель Q6.TBar0)
+        await self.page.click("css=[path='Q6.TBar0']")
 
-        # Слушаем сообщения от сервера
-        self.logger.info("Начинаем прослушивание сообщений от сервера...")
+        # 2. Ждём и кликаем по пункту меню (по тексту — уточни точное название)
+        await self.page.wait_for_selector("text=Сформировать отчёт", timeout=5000)
+        await self.page.click("text=Сформировать отчёт")
 
-        await asyncio.sleep(100)
+        # 3. Ждём появления модального окна (любое с кнопкой Z2)
+        #    Можно ждать по кнопке "Запустить" или по любому элементу окна
+        await self.page.wait_for_selector("css=[path$='.TBarFind']", timeout=10000)  # Q13.T2.TBarFind
+
+        # 4. Ожидаем скачивание
+        async with self.page.expect_download() as download_info:
+            # Нажимаем "Запустить"
+            await self.page.click("css=[path$='.TBarFind']")
+
+            # Ждём, пока начнётся скачивание
+            download = await download_info.value
+
+            # Сохраняем файл
+            filepath = f"./reports/{download.suggested_filename}"
+            await download.save_as(filepath)
+            print(f"Файл отчёта успешно сохранён: {filepath}")
+
+        return filepath

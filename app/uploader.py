@@ -202,6 +202,8 @@ class SocketUploader:
         await asyncio.sleep(100)
 
     async def click(self, action):
+        self.logger.info(f"Клик на элемент: {action['elem']}")
+
         if text_to_search := action.get("text_to_search"):
             inner_text = await self.page.locator(action["id"]).inner_text()
 
@@ -213,3 +215,5 @@ class SocketUploader:
             await locator.click()
         else:
             await self.page.click(action["id"])
+
+        self.logger.info('\t- готово.')

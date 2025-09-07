@@ -172,29 +172,7 @@ class SocketUploader:
         self.logger.info("WebSocket успешно подключен")
 
     async def _upload_users(self):
-        """
-        Что нужно сделать, чтобы запустилось формирования отчета:
-        1. {Action: 'OnButtonListClick', buttonid: 'Z11.01', pedal: '', mousebutton: 'left'}
-        2. {Action: 'toolbuttonclick', Id: 'Z26', Meth: '$$onButtonClickMethod^ClientApi', Button: 0, Pedal: 0}
-        3. Q6_M2woZXprintSP201_172  {Action: 'menuitemclick'}
-        4. {
-            "Action": "treecellclick",
-            "Sender": "T2",
-            "Index": 2,
-            "ColNum": 1,
-            "AreaType": 9,
-            "Button": 1,
-            "Shift": 0,
-            "datastr": "-1 -1 3",
-            "dataint": 0,
-            "FactCol": 1,
-            "pixX": 115,
-            "pixY": 14,
-            "TopIndex": 0
-        }
-        5. Q13_M2wZ35  {Action: 'menuitemclick'}
-        6. {Action: 'toolbuttonclick', Id: 'Z2', Meth: '$$onButtonClickMethod^ClientApi', Button: 0, Pedal: 0}
-        """
+        """Запуск формирования отчета по юзерам."""
 
         for action in self.config["users_actions"]:
             await self.click(action)
@@ -202,7 +180,7 @@ class SocketUploader:
         await asyncio.sleep(100)
 
     async def click(self, action):
-        self.logger.info(f"Клик на элемент: {action['elem']}")
+        self.logger.info(f"Клик: {action['elem']}")
 
         if text_to_search := action.get("text_to_search"):
             inner_text = await self.page.locator(action["id"]).inner_text()

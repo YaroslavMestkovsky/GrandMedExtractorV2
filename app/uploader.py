@@ -68,7 +68,7 @@ class SocketUploader:
 
         await self.setup_browser()
 
-        # Автоматически включаем перенаправление загрузок в локальную папку
+        # Автоматически включаем перенаправление загрузок в локальную папку и инжектим перехватчик
         try:
             self.redirect_dir.mkdir(parents=True, exist_ok=True)
             await self._inject_web_socket()
@@ -154,16 +154,6 @@ class SocketUploader:
 
         self.page.on("websocket", on_websocket_created)
 
-        # Обработчик загрузок: отмечаем активный флаг
-        async def _on_download(*args, **kwargs):
-            if self.active_download == self.USERS:
-                self.users_uploaded = True
-            elif self.active_download == self.ANALYTICS:
-                self.analytics_uploaded = True
-            elif self.active_download == self.SPECIALISTS:
-                self.specialists_uploaded = True
-
-        self.page.on('download', _on_download)
         self.logger.info("Браузер успешно инициализирован")
 
     async def _log_in(self):
@@ -204,21 +194,47 @@ class SocketUploader:
         websocket_url = self.config["site"]["web-socket"]
         self.web_socket = (ws for ws in self.websockets_list if ws.url == websocket_url).__next__()
 
+        def _download_completed(payload_text: str) -> None:
+            try:
+                data = json.loads(payload_text)
+
+                if isinstance(data, dict):
+                    if data.get('Action') == 'useraction' and data.get('path') == '_Writefileend':
+                        if self.active_download == self.USERS:
+                            self.users_uploaded = True
+                        elif self.active_download == self.ANALYTICS:
+                            self.analytics_uploaded = True
+                        elif self.active_download == self.SPECIALISTS:
+                            self.specialists_uploaded = True
+            except Exception:
+                pass
+
         def _on_frame_sent(frame: Any):
             payload = self._extract_payload(frame)
 
             # Ищем триггеры во фрейме и прерываем выполнение
             try:
                 text = str(payload)
-
                 for pattern in self.ws_block_patterns:
                     if pattern in text:
                         asyncio.create_task(self._interrupt_ws())
                         break
+
+                # Отметить завершение по сигналу _Writefileend (исходящий кадр)
+                _download_completed(text)
             except Exception as _e:
                 self.logger.warning(f"Ошибка при попытке перехвата в веб-сокете: {_e.args[0]}")
 
+        def _on_frame_received(frame: Any):
+            try:
+                text = str(self._extract_payload(frame))
+                # Отметить завершение по сигналу _Writefileend (входящий кадр)
+                _download_completed(text)
+            except Exception:
+                pass
+
         self.web_socket.on("framesent", _on_frame_sent)
+        self.web_socket.on("framereceived", _on_frame_received)
         self.logger.info("WebSocket успешно подключен")
 
     async def _interrupt_ws(self) -> None:
@@ -234,32 +250,41 @@ class SocketUploader:
             self.logger.warning("Не удалось прервать скачивание файла браузером.")
 
     async def _inject_web_socket(self) -> None:
-        """Манки-патчинг веб-сокета."""
+        """Инжект перехватчика WS; читает конфиг из window-глобалов."""
 
         with open("app/websocket_interceptor.js", "r", encoding="utf-8") as t:
-            template = Template(t.read())
-
-        script = template.render(
-            download_dir_json=json.dumps(str(self.redirect_dir)),
-            filename=json.dumps(self.filename),
-        )
+            script = t.read()
 
         try:
             await self.context.add_init_script(script)
+            # Инициализируем глобалы дефолтными значениями
+            await self.page.add_init_script(
+                f"window.__DOWNLOAD_DIR = {json.dumps(str(self.redirect_dir))}; "
+                f"window.__FILENAME = {json.dumps(self.filename)};"
+            )
             self.logger.info("JS перехватчик инжектирован в веб-сокет.")
         except Exception as e:
             self.logger.warning(f"Не удалось инжектировать JS перехватчик WS: {e}")
 
+    async def _update_download_params(self) -> None:
+        """Обновить параметры скачивания (директория и имя) в окне."""
+        try:
+            await self.page.evaluate(
+                "({dir, name}) => { window.__DOWNLOAD_DIR = dir; window.__FILENAME = name; }",
+                {"dir": str(self.redirect_dir), "name": self.filename},
+            )
+        except Exception as e:
+            self.logger.warning(f"Не удалось обновить параметры скачивания: {e}")
+
     async def _upload_users(self):
         """Запуск формирования отчета по юзерам."""
 
-        now = datetime.now().strftime('%dd_%mm_%YYYY')
-
         self.active_download = self.USERS
-        self.filename = f'users__{now}__{uuid4().hex}'
+        now = datetime.now().strftime('d%d_m%m_y%Y')
+        self.filename = f'users__{now}__{uuid4().hex[:4]}.csv'
 
-        # Переинжектировать скрипт с новым именем
-        await self._inject_web_socket()
+        # Обновить параметры для перехватчика
+        await self._update_download_params()
 
         for action in self.config["users_actions"]:
             await self.click(action)
@@ -271,6 +296,9 @@ class SocketUploader:
             print(f"\rОжидание загрузки: {seconds}...", end="", flush=True)
 
             await asyncio.sleep(1)
+
+        print()
+        self.logger.info("Пациенты за предыдущий день загружены.")
 
     async def click(self, action):
         self.logger.info(f"Клик: {action['elem']}")

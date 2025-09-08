@@ -20,6 +20,7 @@ from playwright.async_api import (
     BrowserContext,
     Page,
 )
+from charset_normalizer import from_bytes
 
 
 class SocketUploader:
@@ -66,26 +67,29 @@ class SocketUploader:
     async def run(self):
         """Агла!"""
 
-        await self.setup_browser()
-
-        # Автоматически включаем перенаправление загрузок в локальную папку и инжектим перехватчик
         try:
-            self.redirect_dir.mkdir(parents=True, exist_ok=True)
-            await self._inject_web_socket()
-        except Exception as e:
-            self.logger.warning(f"Не удалось включить перенаправление загрузок: {e}")
+            await self.setup_browser()
 
-        await self.page.goto(self.config["site"]["url"])
+            # Автоматически включаем перенаправление загрузок в локальную папку и инжектим перехватчик
+            try:
+                self.redirect_dir.mkdir(parents=True, exist_ok=True)
+                await self._inject_web_socket()
+            except Exception as e:
+                self.logger.warning(f"Не удалось включить перенаправление загрузок: {e}")
 
-        url = self.config["site"]["url"]
-        self.logger.info(f"Переход на страницу {url}")
+            await self.page.goto(self.config["site"]["url"])
 
-        await self._log_in()
-        await self._connect_to_socket()
+            url = self.config["site"]["url"]
+            self.logger.info(f"Переход на страницу {url}")
 
-        # self._upload_analytics()
-        # self._upload_specialists()
-        await self._upload_users()
+            await self._log_in()
+            await self._connect_to_socket()
+
+            # self._upload_analytics()
+            # self._upload_specialists()
+            await self._upload_users()
+        finally:
+            await self.shutdown()
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         """Загрузка конфигурации из YAML файла.
@@ -316,6 +320,29 @@ class SocketUploader:
             await self.page.click(action["id"])
 
         self.logger.info('\t- готово.')
+
+    async def shutdown(self) -> None:
+        """Корректное завершение Playwright и браузера."""
+        try:
+            if self.page is not None:
+                await self.page.close()
+        except Exception:
+            pass
+        try:
+            if self.context is not None:
+                await self.context.close()
+        except Exception:
+            pass
+        try:
+            if self.browser is not None:
+                await self.browser.close()
+        except Exception:
+            pass
+        try:
+            if self.playwright is not None:
+                await self.playwright.stop()
+        except Exception:
+            pass
 
     @staticmethod
     def _extract_payload(frame):

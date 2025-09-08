@@ -46,7 +46,15 @@ class SocketUploader:
         self.filename: str = 'dummy'
 
         # Флаги
+        self.analytics_uploaded = False
+        self.specialists_uploaded = False
         self.users_uploaded = False
+
+        # Текущее активное скачивание
+        self.active_download: Optional[str] = None
+        self.USERS = 'users'
+        self.ANALYTICS = 'analytics'
+        self.SPECIALISTS = 'specialists'
 
         # Пути к локальным браузерам
         self.browser_paths = {
@@ -145,6 +153,17 @@ class SocketUploader:
             self.websockets_list.append(ws)
 
         self.page.on("websocket", on_websocket_created)
+
+        # Обработчик загрузок: отмечаем активный флаг
+        async def _on_download(*args, **kwargs):
+            if self.active_download == self.USERS:
+                self.users_uploaded = True
+            elif self.active_download == self.ANALYTICS:
+                self.analytics_uploaded = True
+            elif self.active_download == self.SPECIALISTS:
+                self.specialists_uploaded = True
+
+        self.page.on('download', _on_download)
         self.logger.info("Браузер успешно инициализирован")
 
     async def _log_in(self):
@@ -235,6 +254,8 @@ class SocketUploader:
         """Запуск формирования отчета по юзерам."""
 
         now = datetime.now().strftime('%dd_%mm_%YYYY')
+
+        self.active_download = self.USERS
         self.filename = f'users__{now}__{uuid4().hex}'
 
         # Переинжектировать скрипт с новым именем

@@ -221,12 +221,10 @@ class SocketUploader:
         Переписывает путь FileFastSave на указанный каталог, сохраняя имя файла.
         """
 
-        download_dir_json = json.dumps(download_path)
+        with open("app/websocket_interceptor.js", "r", encoding="utf-8") as t:
+            template = Template(t.read())
 
-        with open("app/websocket_interceptor.js") as f:
-            template = Template(f.read())
-
-        script = template.render(DOWNLOAD_DIR=json.dumps(download_dir_json))
+        script = template.render(download_dir_json=json.dumps(download_path))
 
         try:
             await self.context.add_init_script(script)

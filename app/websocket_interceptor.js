@@ -1,4 +1,5 @@
 (() => {
+  const FILENAME = {{ filename }};
   const DOWNLOAD_DIR = {{ download_dir_json }};
 
   function joinPath(base, filename) {
@@ -55,7 +56,8 @@
                   try {
                     const fullPath = String(item.Pars[1] || '');
                     const base = fullPath.split(/[\\\\\/]/).pop();
-                    item.Pars[1] = joinPath(DOWNLOAD_DIR, base);
+                    const finalName = (typeof FILENAME === 'string' && FILENAME) ? FILENAME : base;
+                    item.Pars[1] = joinPath(DOWNLOAD_DIR, finalName);
                     changed = true;
                   } catch (e) {}
                 }
@@ -92,7 +94,8 @@
                     try {
                       const fullPath = String(item.Pars[1] || '');
                       const base = fullPath.split(/[\\\\\/]/).pop();
-                      item.Pars[1] = joinPath(DOWNLOAD_DIR, base);
+                      const finalName = (typeof FILENAME === 'string' && FILENAME) ? FILENAME : base;
+                      item.Pars[1] = joinPath(DOWNLOAD_DIR, finalName);
                       changed = true;
                     } catch (e) {}
                   }

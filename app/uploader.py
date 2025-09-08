@@ -1,11 +1,10 @@
 import asyncio
+import json
 import logging
 import os
-import time
-
 import yaml
-import websockets
 
+from jinja2 import Template
 from pathlib import Path
 from typing import (
     Dict,
@@ -27,12 +26,20 @@ class SocketUploader:
         self.config = self._load_config(config_path)
         self._setup_logging()
 
-        self.web_socket = None
+        # Браузер
         self.playwright = None
-        self.websockets_list: list = []
         self.browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
+        
+        # Сокет
+        self.web_socket = None
+        self.websockets_list: list = []
+        self.ws_block_patterns: list[str] = []
+        self.cancel_download_patterns: list[str] = []
+        
+        # Целевая папка загрузок
+        self.redirect_dir: Path = Path(self.config["download"]["output_dir"]).absolute()
 
         # Пути к локальным браузерам
         self.browser_paths = {
@@ -75,6 +82,16 @@ class SocketUploader:
         """Агла!"""
 
         await self.setup_browser()
+        
+        # Автоматически включаем перенаправление загрузок в локальную папку
+        try:
+            self.redirect_dir.mkdir(parents=True, exist_ok=True)
+
+            await self.enable_download_redirect(str(self.redirect_dir))
+            await self.inject_web_socket(str(self.redirect_dir))
+        except Exception as e:
+            self.logger.warning(f"Не удалось включить перенаправление загрузок: {e}")
+
         await self.page.goto(self.config["site"]["url"])
 
         url = self.config["site"]["url"]
@@ -169,7 +186,93 @@ class SocketUploader:
             self.logger.error("Не найден веб-сокет.")
             raise Exception
 
+        def _on_frame_sent(frame: Any):
+            payload = self._extract_payload(frame)
+
+            # Ищем триггеры во фрейме и прерываем выполнение
+            try:
+                text = str(payload)
+
+                for pattern in self.ws_block_patterns:
+                    if pattern in text:
+                        asyncio.create_task(self._interrupt_ws())
+                        break
+            except Exception as _e:
+                self.logger.warning(f"Ошибка при попытке перехвата в веб-сокете: {_e.args[0]}")
+
+        self.web_socket.on("framesent", _on_frame_sent)
         self.logger.info("WebSocket успешно подключен")
+
+    async def _interrupt_ws(self) -> None:
+        """Грубое прерывание действий страницы для остановки скачивания и открытия файла.
+
+        Стратегия: попытаться уйти на about:blank (быстро рвёт WS),
+        """
+
+        try:
+            await self.page.goto("about:blank")
+        except Exception:
+            self.logger.warning("Не удалось прервать скачивание файла браузером.")
+
+    async def inject_web_socket(self, download_path: str) -> None:
+        """Манки-патчинг веб-сокета.
+        
+        Удаляет SuccessAction в _Writefileend (чтобы не открывать файл);
+        Переписывает путь FileFastSave на указанный каталог, сохраняя имя файла.
+        """
+
+        # Загружаем JS из файла
+
+        with open("websocket_interceptor.js") as f:
+            template = Template(f.read())
+        script = template.render(DOWNLOAD_DIR=json.dumps(download_path))
+
+        try:
+            await self.context.add_init_script(script)
+            self.logger.info("JS WS interceptor успешно инжектирован из файла")
+        except Exception as e:
+            self.logger.warning(f"Не удалось инжектировать JS перехватчик WS: {e}")
+
+    async def enable_download_redirect(self, download_path: str) -> None:
+        """Включить безопасное подавление авто-открытия и перенаправление скачиваний.
+
+        Без JS: используем Playwright/Chromium для переноса загрузок в нужную папку.
+        """
+
+        self.redirect_dir = download_path
+        # Перенаправим встроенные скачивания Playwright в нужную директорию
+        try:
+            # В Chromium можно задать поведение загрузок через CDP
+            client = await self.context.new_cdp_session(self.page)
+            await client.send('Browser.setDownloadBehavior', {
+                'behavior': 'allow',
+                'downloadPath': download_path,
+                'eventsEnabled': True
+            })
+        except Exception as e:
+            # fallback: полагаемся на accept_downloads=True и хук на событие download
+            self.logger.info(f"CDP download redirect не применён: {e}")
+
+        try:
+            self.page.off('download')
+        except Exception:
+            pass
+
+        async def _on_download(download):
+            try:
+                suggested = download.suggested_filename
+                # Отмена по шаблонам (если задано): просто не сохраняем файл
+                if any(pat in suggested for pat in self.cancel_download_patterns):
+                    self.logger.info(f"Download отменён по шаблону: {suggested}")
+                    return
+
+                target = os.path.join(download_path, suggested)
+                await download.save_as(target)
+                self.logger.info(f"Download сохранён в {target}")
+            except Exception as e:
+                self.logger.error(f"Ошибка сохранения загрузки: {e}")
+
+        self.page.on('download', _on_download)
 
     async def _upload_users(self):
         """Запуск формирования отчета по юзерам."""
@@ -195,3 +298,21 @@ class SocketUploader:
             await self.page.click(action["id"])
 
         self.logger.info('\t- готово.')
+
+    @staticmethod
+    def _extract_payload(frame):
+        """Извлечение полезной нагрузки из сообщения веб-сокета."""
+
+        for attr in ("text", "payload", "data"):
+            try:
+                value = getattr(frame, attr)
+
+                if callable(value):
+                    value = value()
+
+                if value is not None:
+                    return value
+            except Exception:
+                pass
+
+        return frame

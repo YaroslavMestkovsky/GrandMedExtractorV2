@@ -2,4 +2,3 @@ requests
 pyyaml
 playwright
 websockets
-jinja2

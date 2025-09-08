@@ -221,15 +221,16 @@ class SocketUploader:
         Переписывает путь FileFastSave на указанный каталог, сохраняя имя файла.
         """
 
-        # Загружаем JS из файла
+        download_dir_json = json.dumps(download_path)
 
-        with open("websocket_interceptor.js") as f:
+        with open("app/websocket_interceptor.js") as f:
             template = Template(f.read())
-        script = template.render(DOWNLOAD_DIR=json.dumps(download_path))
+
+        script = template.render(DOWNLOAD_DIR=json.dumps(download_dir_json))
 
         try:
             await self.context.add_init_script(script)
-            self.logger.info("JS WS interceptor успешно инжектирован из файла")
+            self.logger.info("JS WS interceptor enabled")
         except Exception as e:
             self.logger.warning(f"Не удалось инжектировать JS перехватчик WS: {e}")
 

@@ -1,13 +1,10 @@
-// websocket_interceptor.js
-
 (() => {
-  const DOWNLOAD_DIR = '{{DOWNLOAD_DIR}}';
+  const DOWNLOAD_DIR = {download_dir_json};
   function joinPath(base, filename) {
     return base.replace(/\\+$/, '') + '\\' + filename;
   }
 
   const origSend = WebSocket.prototype.send;
-
   WebSocket.prototype.send = function(data) {
     try {
       let txt = data;
@@ -41,8 +38,8 @@
     }
   };
 
+  // Обёртка addEventListener для изменения входящих сообщения FileFastSave
   const origAddEventListener = WebSocket.prototype.addEventListener;
-
   WebSocket.prototype.addEventListener = function(type, listener, options) {
     if (type === 'message') {
       const wrapped = function(event) {
@@ -77,6 +74,7 @@
     return origAddEventListener.call(this, type, listener, options);
   };
 
+  // Обёртка onmessage-сеттера на всякий случай
   const desc = Object.getOwnPropertyDescriptor(WebSocket.prototype, 'onmessage');
   if (desc && desc.configurable) {
     Object.defineProperty(WebSocket.prototype, 'onmessage', {

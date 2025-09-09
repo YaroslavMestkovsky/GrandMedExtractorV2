@@ -96,6 +96,9 @@ class Uploader:
             # self._upload_analytics()
             await self._upload_specialists()
             #await self._upload_users()
+        except Exception as e:
+            self.logger.error(e.args[0])
+            await self.shutdown()
         finally:
             await self.shutdown()
 

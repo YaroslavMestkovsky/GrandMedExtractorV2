@@ -216,9 +216,6 @@ class SocketUploader:
                             self.analytics_uploaded = True
                         elif self.active_download == self.SPECIALISTS:
                             self.specialists_uploaded = True
-                            
-                        # Запускаем HTTP-скачивание файла
-                        asyncio.create_task(self._process_download_via_http())
 
             except Exception:
                 pass
@@ -424,39 +421,13 @@ class SocketUploader:
                     with open(file_path, "wb") as f:
                         f.write(response.content)
 
-                    self.logger.info(f"Файл успешно скачан: {file_path}")
+                    self.logger.info(f"Файл успешно скачан: {self.filename}")
                 else:
                     self.logger.error(f"Ошибка скачивания: {response.status_code} - {response.text}")
 
             except Exception as e:
                 self.logger.error(f"Ошибка при HTTP-скачивании: {e.args[0]}")
                 return False
-
-    async def _process_download_via_http(self) -> None:
-        """Обработка скачивания через HTTP после получения параметров из WebSocket."""
-
-        try:
-            # Небольшая задержка, чтобы параметры успели извлечься
-            await asyncio.sleep(0.5)
-
-            # Если параметры еще не получены, пытаемся их получить
-            if not self.download_params:
-                await self._get_download_params()
-
-            # Если cookies еще не получены, пытаемся их получить
-            if not self.cookies:
-                await self._get_cookies()
-
-            # Скачиваем файл через HTTP
-            success = await self._download_file_via_http()
-
-            if success:
-                self.logger.info(f"Файл '{self.active_download}' успешно скачан через HTTP.")
-            else:
-                self.logger.error(f"Не удалось скачать файл '{self.active_download}' через HTTP.")
-
-        except Exception as e:
-            self.logger.error(f"Ошибка при обработке HTTP-скачивания: {e.args[0]}")
 
     async def shutdown(self) -> None:
         """Корректное завершение Playwright и браузера."""

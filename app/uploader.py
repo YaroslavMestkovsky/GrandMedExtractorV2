@@ -349,7 +349,7 @@ class SocketUploader:
 
             if params and not self.download_params:
                 self.download_params = params
-                self.logger.info(f"Параметры скачивания извлечены заранее: {params}")
+                self.logger.info(f"Параметры скачивания извлечены заранее.")
 
                 # Также получаем cookies заранее, пока браузер еще открыт
                 await self._get_cookies()
@@ -384,6 +384,8 @@ class SocketUploader:
     async def _download_file_via_http(self) -> bool:
         """Скачать файл через HTTP-запрос используя параметры из WebSocket."""
 
+        success = False
+
         if not self.download_params:
             self.logger.error("Нет параметров для скачивания")
         elif not self.cookies:
@@ -409,7 +411,7 @@ class SocketUploader:
                     "Referer": base_url,
                 }
 
-                self.logger.info(f"Скачивание файла через HTTP: {url}")
+                self.logger.info(f"Скачивание файла через HTTP...")
                 response = requests.get(
                     url,
                     params=params,
@@ -424,13 +426,15 @@ class SocketUploader:
                     with open(file_path, "wb") as f:
                         f.write(response.content)
 
-                    self.logger.info(f"Файл успешно скачан: {file_path}")
+                    self.logger.info(f"Файл успешно скачан: {self.filename}")
+                    success = True
                 else:
                     self.logger.error(f"Ошибка скачивания: {response.status_code} - {response.text}")
 
             except Exception as e:
                 self.logger.error(f"Ошибка при HTTP-скачивании: {e.args[0]}")
-                return False
+
+            return success
 
     async def _process_download_via_http(self) -> None:
         """Обработка скачивания через HTTP после получения параметров из WebSocket."""

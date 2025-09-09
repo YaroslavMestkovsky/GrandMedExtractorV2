@@ -79,7 +79,7 @@
                       }
                       // Блокируем скачивание, заменяя путь на пустой
                       if (item.Pars.length > 1) {
-                        item.Pars[1] = '';
+                        item.Pars[1] = 'NUL';
                       }
                       changed = true;
                     } catch (e) {}
@@ -122,7 +122,7 @@
                         }
                         // Блокируем скачивание, заменяя путь на пустой
                         if (item.Pars.length > 1) {
-                          item.Pars[1] = '';
+                          item.Pars[1] = 'NUL';
                         }
                         changed = true;
                       } catch (e) {}

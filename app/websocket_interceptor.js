@@ -1,17 +1,26 @@
   (() => {
-    function getDownloadDir() {
-      try { return String(window.__DOWNLOAD_DIR || ''); } catch (e) { return ''; }
-    }
-    function getFilenameFallback(originalFullPath) {
+    // Функция для извлечения параметров скачивания из сообщения
+    function extractDownloadParams(item) {
       try {
-        const filename = String(window.__FILENAME || '');
-        if (filename) return filename;
+        if (item && item.Act === 'DO' && item.Fn === 'FileFastSave' && Array.isArray(item.Pars) && item.Pars.length > 0) {
+          const mtempPrtCall = String(item.Pars[0] || '');
+          // Извлекаем параметры из вызова mtempPrt
+          // Пример: ^mtempPrt(76032,"ind",2,"body","txt","form")
+          const match = mtempPrtCall.match(/mtempPrt\((\d+),"(.*?)",(\d+),"(.*?)","(.*?)","(.*?)"\)/);
+          if (match) {
+            return {
+              report_id: parseInt(match[1]),
+              report_type: match[2],
+              mode: parseInt(match[3]),
+              body: match[4],
+              fmt: match[5],
+              layout: match[6],
+              full_path: mtempPrtCall
+            };
+          }
+        }
       } catch (e) {}
-      const base = String(originalFullPath || '').split(/[\\/]/).pop();
-      return base || 'download';
-    }
-    function joinPath(base, filename) {
-      return String(base || '').replace(/\\+$/, '') + '\\' + String(filename || 'download');
+      return null;
     }
 
     const origSend = WebSocket.prototype.send;
@@ -28,6 +37,7 @@
 
         try {
           const msg = JSON.parse(txt);
+          
           if (msg && msg.Action === 'useraction' && typeof msg.action === 'string') {
             try {
               const inner = JSON.parse(msg.action);
@@ -59,11 +69,18 @@
               if (Array.isArray(parsed)) {
                 let changed = false;
                 for (const item of parsed) {
-                  if (item && item.Act === 'DO' && item.Fn === 'FileFastSave' && Array.isArray(item.Pars) && item.Pars.length > 1) {
+                  if (item && item.Act === 'DO' && item.Fn === 'FileFastSave' && Array.isArray(item.Pars) && item.Pars.length > 0) {
                     try {
-                      const fullPath = String(item.Pars[1] || '');
-                      const baseName = getFilenameFallback(fullPath);
-                      item.Pars[1] = joinPath(getDownloadDir(), baseName);
+                      // Извлекаем параметры скачивания из входящего сообщения
+                      const downloadParams = extractDownloadParams(item);
+                      if (downloadParams) {
+                        window.__DOWNLOAD_PARAMS = downloadParams;
+                        console.log('Download params extracted from incoming message:', downloadParams);
+                      }
+                      // Блокируем скачивание, заменяя путь на пустой
+                      if (item.Pars.length > 1) {
+                        item.Pars[1] = '';
+                      }
                       changed = true;
                     } catch (e) {}
                   }
@@ -95,11 +112,18 @@
                 if (Array.isArray(parsed)) {
                   let changed = false;
                   for (const item of parsed) {
-                    if (item && item.Act === 'DO' && item.Fn === 'FileFastSave' && Array.isArray(item.Pars) && item.Pars.length > 1) {
+                    if (item && item.Act === 'DO' && item.Fn === 'FileFastSave' && Array.isArray(item.Pars) && item.Pars.length > 0) {
                       try {
-                        const fullPath = String(item.Pars[1] || '');
-                        const baseName = getFilenameFallback(fullPath);
-                        item.Pars[1] = joinPath(getDownloadDir(), baseName);
+                        // Извлекаем параметры скачивания из входящего сообщения
+                        const downloadParams = extractDownloadParams(item);
+                        if (downloadParams) {
+                          window.__DOWNLOAD_PARAMS = downloadParams;
+                          console.log('Download params extracted from incoming message:', downloadParams);
+                        }
+                        // Блокируем скачивание, заменяя путь на пустой
+                        if (item.Pars.length > 1) {
+                          item.Pars[1] = '';
+                        }
                         changed = true;
                       } catch (e) {}
                     }

@@ -1,10 +1,10 @@
 import asyncio
 import logging
 import os
-from datetime import datetime
 import urllib3
 import yaml
 
+from datetime import datetime
 from uuid import uuid4
 from pathlib import Path
 
@@ -94,10 +94,58 @@ class Uploader:
             await self._connect_to_socket()
 
             # self._upload_analytics()
-            # self._upload_specialists()
-            await self._upload_users()
+            await self._upload_specialists()
+            #await self._upload_users()
         finally:
             await self.shutdown()
+
+    async def _upload_users(self):
+        """Запуск формирования отчета по юзерам."""
+
+        await self._setup_upload(self.USERS)
+
+        for action in self.config["users_actions"]:
+            await self.click(action)
+
+        seconds = 0
+
+        while not self.users_uploaded:
+            seconds += 1
+            print(f"\rОжидание загрузки: {seconds}...", end="", flush=True)
+
+            await asyncio.sleep(1)
+
+        print()
+        self.logger.info("[Uploader] Пациенты за предыдущий день загружены.")
+        await asyncio.sleep(5)
+
+    async def _upload_specialists(self):
+        """Запуск формирования отчета по специалистам."""
+
+        await self._setup_upload(self.SPECIALISTS)
+
+        for action in self.config["specialists_actions"]:
+            await self.click(action)
+
+        seconds = 0
+
+        while not self.specialists_uploaded:
+            seconds += 1
+            print(f"\rОжидание загрузки: {seconds}...", end="", flush=True)
+
+            await asyncio.sleep(1)
+
+        print()
+        self.logger.info(f"[Uploader] Специалисты загружены.")
+        await asyncio.sleep(100)
+
+    async def _setup_upload(self, active_download):
+        self.active_download = active_download
+        now = datetime.now().strftime('d%d_m%m_y%Y')
+        self.filename = f'{active_download}__{now}__{uuid4().hex[:4]}.csv'
+
+        # Обновить параметры для перехватчика
+        await self._update_download_params()
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         """Загрузка конфигурации из YAML файла.
@@ -168,7 +216,6 @@ class Uploader:
             self.websockets_list.append(ws)
 
         self.page.on("websocket", on_websocket_created)
-
         self.logger.info("[Uploader] Браузер успешно инициализирован")
 
     async def _log_in(self):
@@ -215,6 +262,7 @@ class Uploader:
                 self.analytics_uploaded = True
             elif self.active_download == self.SPECIALISTS:
                 self.specialists_uploaded = True
+
             asyncio.create_task(self._process_download_via_http())
 
         await self.service.connect_to_socket(
@@ -228,7 +276,7 @@ class Uploader:
     async def _interrupt_ws(self) -> None:
         """Грубое прерывание действий страницы для остановки скачивания и открытия файла.
 
-        Стратегия: попытаться уйти на about:blank (быстро рвёт WS),
+        Стратегия: попытаться уйти на about:blank (быстро рвёт WS).
         """
 
         try:
@@ -254,31 +302,6 @@ class Uploader:
             await self.service.update_download_targets(self.redirect_dir, self.filename)
         except Exception as e:
             self.logger.warning(f"[Uploader] Не удалось обновить параметры скачивания: {e.args[0]}")
-
-    async def _upload_users(self):
-        """Запуск формирования отчета по юзерам."""
-
-        self.active_download = self.USERS
-        now = datetime.now().strftime('d%d_m%m_y%Y')
-        self.filename = f'users__{now}__{uuid4().hex[:4]}.csv'
-
-        # Обновить параметры для перехватчика
-        await self._update_download_params()
-
-        for action in self.config["users_actions"]:
-            await self.click(action)
-
-        seconds = 0
-
-        while not self.users_uploaded:
-            seconds += 1
-            print(f"\rОжидание загрузки: {seconds}...", end="", flush=True)
-
-            await asyncio.sleep(1)
-
-        print()
-        self.logger.info("[Uploader] Пациенты за предыдущий день загружены.")
-        await asyncio.sleep(100)
 
     async def click(self, action):
         self.logger.info(f"[Uploader] Клик: {action['elem']}")

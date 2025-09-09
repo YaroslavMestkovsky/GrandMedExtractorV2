@@ -50,6 +50,7 @@ class SocketService:
 
     async def update_download_targets(self, redirect_dir: Path, filename: str) -> None:
         """Обновить window‑глобалы (директория и имя файла)."""
+
         self.redirect_dir = redirect_dir
         self.filename = filename
 

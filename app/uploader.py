@@ -1,16 +1,13 @@
 import asyncio
-import json
 import logging
 import os
-import requests
 from datetime import datetime
-from urllib.parse import quote
 import urllib3
-import tempfile
 import yaml
 
 from uuid import uuid4
 from pathlib import Path
+
 from typing import (
     Dict,
     Any,
@@ -23,17 +20,22 @@ from playwright.async_api import (
     Page,
 )
 
+from app.service import SocketService
+
 
 # Отключение предупреждения о небезопасных HTTPS-запросах
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-class SocketUploader:
-    """Загрузка отчетов через веб-сокет."""
+class Uploader:
+    """Выгрузка отчётов."""
 
     def __init__(self, config_path: str = "app/config.yaml"):
         self.config = self._load_config(config_path)
         self._setup_logging()
+
+        # Сервис загрузки
+        self.service: Optional[SocketService] = None
 
         # Браузер
         self.playwright = None
@@ -42,7 +44,6 @@ class SocketUploader:
         self.page: Optional[Page] = None
 
         # Сокет
-        self.web_socket = None
         self.websockets_list: list = []
         self.ws_block_patterns: list[str] = []
         self.cancel_download_patterns: list[str] = []
@@ -82,12 +83,12 @@ class SocketUploader:
                 self.redirect_dir.mkdir(parents=True, exist_ok=True)
                 await self._inject_web_socket()
             except Exception as e:
-                self.logger.warning(f"Не удалось включить перенаправление загрузок: {e.args[0]}")
+                self.logger.warning(f"[Uploader] Не удалось включить перенаправление загрузок: {e.args[0]}")
 
             await self.page.goto(self.config["site"]["url"])
 
             url = self.config["site"]["url"]
-            self.logger.info(f"Переход на страницу {url}")
+            self.logger.info(f"[Uploader] Переход на страницу {url}")
 
             await self._log_in()
             await self._connect_to_socket()
@@ -136,14 +137,14 @@ class SocketUploader:
         executable_path = os.path.join(self.browser_paths["chromium"], "chrome.exe")
 
         if not os.path.exists(executable_path):
-            self.logger.warning(f"Локальный браузер не найден по пути {executable_path}")
-            self.logger.info("Используем браузер из системной установки")
+            self.logger.warning(f"[Uploader] Локальный браузер не найден по пути {executable_path}")
+            self.logger.info("[Uploader] Используем браузер из системной установки")
             self.browser = await self.playwright.chromium.launch(
                 headless=False,
                 args=["--ignore-certificate-errors"],
             )
         else:
-            self.logger.info(f"Используем локальный браузер из {executable_path}")
+            self.logger.info(f"[Uploader] Используем локальный браузер из {executable_path}")
             self.browser = await self.playwright.chromium.launch(
                 headless=False,
                 executable_path=executable_path,
@@ -159,13 +160,16 @@ class SocketUploader:
         # Устанавливаем обработчики событий
         self.page = await self.context.new_page()
 
+        # Инициализируем сервис скачивания
+        self.service = SocketService(self.context, self.page, self.config, logger=self.logger)
+
         # Перехватываем все WebSocket'ы
         def on_websocket_created(ws):
             self.websockets_list.append(ws)
 
         self.page.on("websocket", on_websocket_created)
 
-        self.logger.info("Браузер успешно инициализирован")
+        self.logger.info("[Uploader] Браузер успешно инициализирован")
 
     async def _log_in(self):
         for action in self.config["log_in_actions"]:
@@ -174,7 +178,7 @@ class SocketUploader:
             description = action.get("description", "")
             reset_wss = action.get("reset_wss", "")
 
-            self.logger.info(f"Выполнение действия: {description}")
+            self.logger.info(f"[Uploader] Выполнение действия: {description}")
 
             if reset_wss:
                 # Скидываем все веб-сокеты без авторизации
@@ -182,7 +186,7 @@ class SocketUploader:
 
             if action_type == "click" and selector:
                 await self.page.click(selector)
-                self.logger.info(f"\tВыполнено нажатие на элемент")
+                self.logger.info(f"[Uploader] \tВыполнено нажатие на элемент")
             elif action_type == "input" and selector:
                 value = action["value"]
 
@@ -197,66 +201,29 @@ class SocketUploader:
                 await self.page.click(selector)
                 await self.page.type(selector, value)
 
-                self.logger.info(f"\tВведен текст {value} в элемент")
+                self.logger.info(f"[Uploader] \tВведен текст {value} в элемент")
 
     async def _connect_to_socket(self):
-        """Подключение к веб-сокету."""
+        """Подключение обработчиков к целевому WebSocket (через сервис)."""
 
         websocket_url = self.config["site"]["web-socket"]
-        self.web_socket = (ws for ws in self.websockets_list if ws.url == websocket_url).__next__()
 
-        def _download_completed(payload_text: str) -> None:
-            try:
-                data = json.loads(payload_text)
+        def on_writefileend(_payload: str) -> None:
+            if self.active_download == self.USERS:
+                self.users_uploaded = True
+            elif self.active_download == self.ANALYTICS:
+                self.analytics_uploaded = True
+            elif self.active_download == self.SPECIALISTS:
+                self.specialists_uploaded = True
+            asyncio.create_task(self._process_download_via_http())
 
-                if isinstance(data, dict):
-                    if data.get('Action') == 'useraction' and data.get('path') == '_Writefileend':
-                        if self.active_download == self.USERS:
-                            self.users_uploaded = True
-                        elif self.active_download == self.ANALYTICS:
-                            self.analytics_uploaded = True
-                        elif self.active_download == self.SPECIALISTS:
-                            self.specialists_uploaded = True
-                            
-                        # Запускаем HTTP-скачивание файла
-                        asyncio.create_task(self._process_download_via_http())
-
-            except Exception:
-                pass
-
-        def _on_frame_sent(frame: Any):
-            payload = self._extract_payload(frame)
-
-            # Ищем триггеры во фрейме и прерываем выполнение
-            try:
-                text = str(payload)
-
-                for pattern in self.ws_block_patterns:
-                    if pattern in text:
-                        asyncio.create_task(self._interrupt_ws())
-                        break
-
-                # Отметить завершение по сигналу _Writefileend (исходящий кадр)
-                _download_completed(text)
-            except Exception as _e:
-                self.logger.warning(f"Ошибка при попытке перехвата в веб-сокете: {_e.args[0]}")
-
-        def _on_frame_received(frame: Any):
-            try:
-                text = str(self._extract_payload(frame))
-
-                # Проверяем на наличие FileFastSave и извлекаем параметры
-                if 'FileFastSave' in text and 'mtempPrt' in text:
-                    asyncio.create_task(self._extract_download_params_async())
-                
-                # Отметить завершение по сигналу _Writefileend (входящий кадр)
-                _download_completed(text)
-            except Exception:
-                pass
-
-        self.web_socket.on("framesent", _on_frame_sent)
-        self.web_socket.on("framereceived", _on_frame_received)
-        self.logger.info("WebSocket успешно подключен")
+        await self.service.connect_to_socket(
+            websocket_url=websocket_url,
+            websockets_list=self.websockets_list,
+            ws_block_patterns=self.ws_block_patterns,
+            on_writefileend=on_writefileend,
+        )
+        self.logger.info("[Uploader] WebSocket успешно подключен")
 
     async def _interrupt_ws(self) -> None:
         """Грубое прерывание действий страницы для остановки скачивания и открытия файла.
@@ -266,37 +233,27 @@ class SocketUploader:
 
         try:
             await self.page.goto("about:blank")
-            self.logger.info("Успешно прервано автоматическое скачивание и открытие файла.")
+            self.logger.info("[Uploader] Успешно прервано автоматическое скачивание и открытие файла.")
         except Exception:
-            self.logger.warning("Не удалось прервать скачивание файла браузером.")
+            self.logger.warning("[Uploader] Не удалось прервать скачивание файла браузером.")
 
     async def _inject_web_socket(self) -> None:
         """Инжект перехватчика WS; читает конфиг из window-глобалов."""
 
-        with open("app/websocket_interceptor.js", "r", encoding="utf-8") as t:
-            script = t.read()
-
         try:
-            await self.context.add_init_script(script)
-            # Инициализируем глобалы дефолтными значениями
-            await self.page.add_init_script(
-                f"window.__DOWNLOAD_DIR = {json.dumps(str(self.redirect_dir))}; "
-                f"window.__FILENAME = {json.dumps(self.filename)}; "
-                f"window.__BLACKHOLE_PATH = {json.dumps(str(Path(tempfile.gettempdir()) / 'qms_discard.tmp'))};"
-            )
-            self.logger.info("JS перехватчик инжектирован в веб-сокет.")
+            await self.service.update_download_targets(self.redirect_dir, self.filename)
+            await self.service.inject_interceptor()
+            self.logger.info("[Uploader] JS перехватчик инжектирован в веб-сокет.")
         except Exception as e:
-            self.logger.warning(f"Не удалось инжектировать JS перехватчик WS: {e.args[0]}")
+            self.logger.warning(f"[Uploader] Не удалось инжектировать JS перехватчик WS: {e.args[0]}")
 
     async def _update_download_params(self) -> None:
         """Обновить параметры скачивания (директория и имя) в окне."""
+
         try:
-            await self.page.evaluate(
-                "({dir, name}) => { window.__DOWNLOAD_DIR = dir; window.__FILENAME = name; }",
-                {"dir": str(self.redirect_dir), "name": self.filename},
-            )
+            await self.service.update_download_targets(self.redirect_dir, self.filename)
         except Exception as e:
-            self.logger.warning(f"Не удалось обновить параметры скачивания: {e.args[0]}")
+            self.logger.warning(f"[Uploader] Не удалось обновить параметры скачивания: {e.args[0]}")
 
     async def _upload_users(self):
         """Запуск формирования отчета по юзерам."""
@@ -320,17 +277,17 @@ class SocketUploader:
             await asyncio.sleep(1)
 
         print()
-        self.logger.info("Пациенты за предыдущий день загружены.")
+        self.logger.info("[Uploader] Пациенты за предыдущий день загружены.")
         await asyncio.sleep(100)
 
     async def click(self, action):
-        self.logger.info(f"Клик: {action['elem']}")
+        self.logger.info(f"[Uploader] Клик: {action['elem']}")
 
         if text_to_search := action.get("text_to_search"):
             inner_text = await self.page.locator(action["id"]).inner_text()
 
             if not text_to_search in inner_text:
-                self.logger.error(f"Не найден элемент {text_to_search}")
+                self.logger.error(f"[Uploader] Не найден элемент {text_to_search}")
                 raise Exception
 
             locator = self.page.locator(f"{action['root_node']} >> text={text_to_search}")
@@ -338,104 +295,54 @@ class SocketUploader:
         else:
             await self.page.click(action["id"])
 
-        self.logger.info('\t- готово.')
+        self.logger.info('[Uploader]\t- готово.')
 
     async def _extract_download_params_async(self) -> None:
-        """Асинхронно извлечь параметры скачивания при их появлении."""
+        """Асинхронно извлечь параметры скачивания при их появлении (через сервис)."""
 
         try:
-            # Небольшая задержка, чтобы JavaScript успел обработать сообщение
-            await asyncio.sleep(0.1)
-
-            params = await self.page.evaluate("() => window.__DOWNLOAD_PARAMS")
-
-            if params and not self.download_params:
-                self.download_params = params
-                self.logger.info(f"Параметры скачивания извлечены заранее.")
-
-                # Также получаем cookies заранее, пока браузер еще открыт
-                await self._get_cookies()
+            await self.service.ensure_params()
+            if self.service.download_params and not self.download_params:
+                self.download_params = self.service.download_params
+                self.logger.info("[Uploader] Параметры скачивания синхронизированы из сервиса")
+            if self.service.cookies and not self.cookies:
+                self.cookies = self.service.cookies
         except Exception as e:
-            self.logger.warning(f"Не удалось извлечь параметры заранее: {e.args[0]}")
+            self.logger.warning(f"[Uploader] Не удалось извлечь параметры заранее: {e.args[0]}")
 
     async def _get_download_params(self) -> None:
-        """Получить параметры скачивания из JavaScript."""
+        """Получить параметры скачивания (через сервис)."""
 
         try:
-            params = await self.page.evaluate("() => window.__DOWNLOAD_PARAMS")
-
-            if params:
-                self.download_params = params
+            await self.service.ensure_params()
+            if self.service.download_params:
+                self.download_params = self.service.download_params
         except Exception as e:
-            self.logger.warning(f"Не удалось получить параметры скачивания: {e.args[0]}")
+            self.logger.warning(f"[Uploader] Не удалось получить параметры скачивания: {e.args[0]}")
 
     async def _get_cookies(self) -> None:
-        """Получить cookies из браузера."""
+        """Получить cookies (через сервис)."""
 
         try:
-            cookies = await self.context.cookies()
-            cookie_dict = {}
-
-            for cookie in cookies:
-                cookie_dict[cookie['name']] = cookie['value']
-
-            self.cookies = cookie_dict
+            await self.service._get_cookies()
+            if self.service.cookies:
+                self.cookies = self.service.cookies
         except Exception as e:
-            self.logger.warning(f"Не удалось получить cookies: {e.args[0].args[0]}")
+            self.logger.warning(f"[Uploader] Не удалось получить cookies: {e.args[0]}")
 
     async def _download_file_via_http(self) -> bool:
         """Скачать файл через HTTP-запрос используя параметры из WebSocket."""
 
-        success = False
+        if not self.service:
+            return False
 
-        if not self.download_params:
-            self.logger.error("Нет параметров для скачивания")
-        elif not self.cookies:
-            self.logger.error("Нет cookies для аутентификации")
-        else:
-            try:
-                function_call = f'^mtempPrt({self.download_params["report_id"]},"{self.download_params["report_type"]}",{self.download_params["mode"]},"{self.download_params["body"]}","{self.download_params["fmt"]}","{self.download_params["layout"]}")'
-                encoded_function = quote(function_call, safe='')
+        self.service.redirect_dir = self.redirect_dir
+        self.service.filename = self.filename
+        self.service.download_params = self.download_params
+        self.service.cookies = self.cookies
+        ok = await self.service.download_via_http()
 
-                # Получаем базовый URL из конфигурации
-                base_url = self.config["site"]["url"].rstrip('/')
-                url = f"{base_url}/download/{encoded_function}"
-
-                # Параметры запроса
-                params = {
-                    "enc": "0",
-                    "addCRLF": "No",
-                }
-
-                headers = {
-                    "Accept": "*/*",
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "Referer": base_url,
-                }
-
-                self.logger.info(f"Скачивание файла через HTTP...")
-                response = requests.get(
-                    url,
-                    params=params,
-                    headers=headers,
-                    cookies=self.cookies,
-                    verify=False,
-                )
-
-                if response.status_code == 200:
-                    file_path = self.redirect_dir / self.filename
-
-                    with open(file_path, "wb") as f:
-                        f.write(response.content)
-
-                    success = True
-                else:
-                    self.logger.error(f"Ошибка скачивания: {response.status_code} - {response.text}")
-
-            except Exception as e:
-                self.logger.error(f"Ошибка при HTTP-скачивании: {e.args[0]}")
-
-            return success
+        return ok
 
     async def _process_download_via_http(self) -> None:
         """Обработка скачивания через HTTP после получения параметров из WebSocket."""
@@ -456,12 +363,12 @@ class SocketUploader:
             success = await self._download_file_via_http()
 
             if success:
-                self.logger.info(f"Файл '{self.filename}' успешно скачан через HTTP.")
+                self.logger.info(f"[Uploader] Файл '{self.filename}' успешно скачан через HTTP.")
             else:
-                self.logger.error(f"Не удалось скачать файл '{self.filename}' через HTTP.")
+                self.logger.error(f"[Uploader] Не удалось скачать файл '{self.filename}' через HTTP.")
 
         except Exception as e:
-            self.logger.error(f"Ошибка при обработке HTTP-скачивания: {e.args[0]}")
+            self.logger.error(f"[Uploader] Ошибка при обработке HTTP-скачивания: {e.args[0]}")
 
     async def shutdown(self) -> None:
         """Корректное завершение Playwright и браузера."""

@@ -6,6 +6,7 @@ import requests
 from datetime import datetime
 from urllib.parse import quote
 import urllib3
+import tempfile
 import yaml
 
 from uuid import uuid4
@@ -280,7 +281,8 @@ class SocketUploader:
             # Инициализируем глобалы дефолтными значениями
             await self.page.add_init_script(
                 f"window.__DOWNLOAD_DIR = {json.dumps(str(self.redirect_dir))}; "
-                f"window.__FILENAME = {json.dumps(self.filename)};"
+                f"window.__FILENAME = {json.dumps(self.filename)}; "
+                f"window.__BLACKHOLE_PATH = {json.dumps(str(Path(tempfile.gettempdir()) / 'qms_discard.tmp'))};"
             )
             self.logger.info("JS перехватчик инжектирован в веб-сокет.")
         except Exception as e:
@@ -426,7 +428,6 @@ class SocketUploader:
                     with open(file_path, "wb") as f:
                         f.write(response.content)
 
-                    self.logger.info(f"Файл успешно скачан: {self.filename}")
                     success = True
                 else:
                     self.logger.error(f"Ошибка скачивания: {response.status_code} - {response.text}")
@@ -455,9 +456,9 @@ class SocketUploader:
             success = await self._download_file_via_http()
 
             if success:
-                self.logger.info(f"Файл '{self.active_download}' успешно скачан через HTTP.")
+                self.logger.info(f"Файл '{self.filename}' успешно скачан через HTTP.")
             else:
-                self.logger.error(f"Не удалось скачать файл '{self.active_download}' через HTTP.")
+                self.logger.error(f"Не удалось скачать файл '{self.filename}' через HTTP.")
 
         except Exception as e:
             self.logger.error(f"Ошибка при обработке HTTP-скачивания: {e.args[0]}")

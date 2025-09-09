@@ -77,9 +77,12 @@
                         window.__DOWNLOAD_PARAMS = downloadParams;
                         console.log('Download params extracted from incoming message:', downloadParams);
                       }
-                      // Блокируем скачивание, заменяя путь на пустой
+                      // Блокируем скачивание, заменяя путь на безопасный файл-поглотитель
                       if (item.Pars.length > 1) {
-                        item.Pars[1] = 'NUL';
+                        let sink = '';
+                        try { sink = String(window.__BLACKHOLE_PATH || ''); } catch (e) {}
+                        if (!sink) sink = 'C\\\\Windows\\\\Temp\\\\qms_discard.tmp';
+                        item.Pars[1] = sink;
                       }
                       changed = true;
                     } catch (e) {}
@@ -120,9 +123,12 @@
                           window.__DOWNLOAD_PARAMS = downloadParams;
                           console.log('Download params extracted from incoming message:', downloadParams);
                         }
-                        // Блокируем скачивание, заменяя путь на пустой
+                        // Блокируем скачивание, заменяя путь на безопасный файл-поглотитель
                         if (item.Pars.length > 1) {
-                          item.Pars[1] = 'NUL';
+                          let sink = '';
+                          try { sink = String(window.__BLACKHOLE_PATH || ''); } catch (e) {}
+                          if (!sink) sink = 'C\\\\Windows\\\\Temp\\\\qms_discard.tmp';
+                          item.Pars[1] = sink;
                         }
                         changed = true;
                       } catch (e) {}

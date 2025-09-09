@@ -1,10 +1,10 @@
 import asyncio
 
-from uploader import SocketUploader
+from uploader import Uploader
 
 
 async def main():
-    uploader = SocketUploader()
+    uploader = Uploader()
 
     try:
         await uploader.run()

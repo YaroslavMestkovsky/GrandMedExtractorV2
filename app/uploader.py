@@ -20,7 +20,7 @@ from playwright.async_api import (
     Page,
 )
 
-from app.service import SocketService
+from service import SocketService
 
 
 # Отключение предупреждения о небезопасных HTTPS-запросах

@@ -9,7 +9,7 @@ async def main():
     try:
         await uploader.run()
     except Exception as e:
-        uploader.logger.error(f"Произошла ошибка: {str(e)}")
+        uploader.logger.error(f"Произошла ошибка: {str(e.args[0])}")
 
 
 if __name__ == "__main__":

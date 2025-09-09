@@ -18,7 +18,7 @@ class SocketService:
     - Выполнять прямое HTTP‑скачивание файла по параметрам
     """
 
-    def __init__(self, context, page, config: Dict[str, Any], logger=None):
+    def __init__(self, context, page, config: Dict[str, Any], logger):
         self.context = context
         self.page = page
         self.config = config
@@ -45,20 +45,20 @@ class SocketService:
             f"window.__FILENAME = {json.dumps(str(self.filename or ''))}; "
             f"window.__BLACKHOLE_PATH = {json.dumps(blackhole_path)};"
         )
-        if self.logger:
-            self.logger.info("[SocketService] Перехватчик WS инжектирован")
+
+        self.logger.info("[SocketService] Перехватчик WS инжектирован")
 
     async def update_download_targets(self, redirect_dir: Path, filename: str) -> None:
         """Обновить window‑глобалы (директория и имя файла)."""
         self.redirect_dir = redirect_dir
         self.filename = filename
+
         try:
             await self.page.evaluate(
                 "({dir, name}) => { window.__DOWNLOAD_DIR = dir; window.__FILENAME = name; }",
                 {"dir": str(self.redirect_dir), "name": self.filename},
             )
-            if self.logger:
-                self.logger.info(f"[SocketService] Обновлены цели скачивания: dir='{self.redirect_dir}', name='{self.filename}'")
+            self.logger.debug(f"[SocketService] Обновлены цели скачивания: dir='{self.redirect_dir}', name='{self.filename}'")
         except Exception:
             # Non-fatal
             pass
@@ -72,8 +72,8 @@ class SocketService:
                 self.download_params = params
                 # Also get cookies while context is alive
                 await self._get_cookies()
-                if self.logger:
-                    self.logger.info(f"[SocketService] Ранние параметры скачивания извлечены")
+
+                self.logger.debug(f"[SocketService] Ранние параметры скачивания извлечены")
         except Exception:
             pass
 
@@ -85,8 +85,8 @@ class SocketService:
             params = await self.page.evaluate("() => window.__DOWNLOAD_PARAMS")
             if params:
                 self.download_params = params
-                if self.logger:
-                    self.logger.info(f"[SocketService] Параметры скачивания получены при ensure_params")
+
+                self.logger.info(f"[SocketService] Параметры скачивания получены при ensure_params")
         except Exception:
             pass
 
@@ -98,8 +98,8 @@ class SocketService:
             for cookie in cookies:
                 cookie_dict[cookie["name"]] = cookie["value"]
             self.cookies = cookie_dict
-            if self.logger:
-                self.logger.info(f"[SocketService] Cookies считаны: {list(self.cookies.keys())}")
+
+            self.logger.debug(f"[SocketService] Cookies считаны: {list(self.cookies.keys())}")
         except Exception:
             self.cookies = {}
 
@@ -140,15 +140,12 @@ class SocketService:
                 file_path = Path(self.redirect_dir) / str(self.filename)
                 with open(file_path, "wb") as f:
                     f.write(response.content)
-                if self.logger:
-                    self.logger.info(f"[SocketService] Файл скачан: {file_path}")
+                self.logger.debug(f"[SocketService] Файл скачан: {file_path}")
                 return True
-            if self.logger:
-                self.logger.error(f"[SocketService] Ошибка скачивания: {response.status_code} - {response.text}")
+            self.logger.error(f"[SocketService] Ошибка скачивания: {response.status_code} - {response.text}")
             return False
         except Exception:
-            if self.logger:
-                self.logger.error("[SocketService] Исключение при HTTP-скачивании")
+            self.logger.error("[SocketService] Исключение при HTTP-скачивании")
             return False
 
     async def connect_to_socket(
@@ -165,8 +162,7 @@ class SocketService:
         """
 
         web_socket = (ws for ws in websockets_list if ws.url == websocket_url).__next__()
-        if self.logger:
-            self.logger.info(f"[SocketService] Подключение к WS: {websocket_url}")
+        self.logger.info(f"[SocketService] Подключение к WS: {websocket_url}")
 
         def _download_completed(payload_text: str) -> None:
             try:
@@ -199,8 +195,7 @@ class SocketService:
 
         web_socket.on("framesent", _on_frame_sent)
         web_socket.on("framereceived", _on_frame_received)
-        if self.logger:
-            self.logger.info("[SocketService] Обработчики WS установлены")
+        self.logger.info("[SocketService] Обработчики WS установлены")
 
     async def _interrupt_ws(self) -> None:
         """Пробовать оборвать активность страницы (сбросить WS)."""

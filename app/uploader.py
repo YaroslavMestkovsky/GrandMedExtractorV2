@@ -156,7 +156,6 @@ class Uploader:
 
         print()
         self.logger.info(f"[Uploader] Специалисты загружены.")
-        await asyncio.sleep(100)
 
     async def click(self, action):
         self.logger.info(f"[Uploader] Клик: {action['elem']}")
@@ -170,6 +169,8 @@ class Uploader:
 
             locator = self.page.locator(f"{action['root_node']} >> text={text_to_search}")
             await locator.click(timeout=action.get("timeout", self.base_timeout))
+        elif key := action.get("key"):
+            await self.page.keyboard.press(key)
         else:
             await self.page.click(action["id"], timeout=action.get("timeout", self.base_timeout))
 

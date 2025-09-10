@@ -104,7 +104,9 @@ class Uploader:
             await self._connect_to_socket()
 
             await self._upload_analytics()
+            await asyncio.sleep(3)
             await self._upload_specialists()
+            await asyncio.sleep(3)
             await self._upload_users()
 
             if all((

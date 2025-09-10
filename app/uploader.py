@@ -106,6 +106,8 @@ class Uploader:
             # self._upload_analytics()
             await self._upload_specialists()
             #await self._upload_users()
+
+            await asyncio.sleep(1000)
         except Exception as e:
             self.logger.error(e.args[0])
             await self.shutdown()
@@ -155,10 +157,14 @@ class Uploader:
             await asyncio.sleep(1)
 
         print()
+
+        for action in self.config["specialists_after_upload_actions"]:
+            await self.click(action)
+
         self.logger.info(f"[Uploader] Специалисты загружены.")
 
     async def click(self, action):
-        self.logger.info(f"[Uploader] Клик: {action['elem']}")
+        self.logger.info(f"[Uploader] Действие: {action['elem']}")
 
         if text_to_search := action.get("text_to_search"):
             inner_text = await self.page.locator(action["id"]).inner_text()

@@ -103,11 +103,26 @@ class Uploader:
             await self._log_in()
             await self._connect_to_socket()
 
+            self.logger.info("===========================")
+            print()
+
             await self._upload_analytics()
             await asyncio.sleep(3)
+
+            self.logger.info("===========================")
+            print()
+
             await self._upload_specialists()
             await asyncio.sleep(3)
+
+            self.logger.info("===========================")
+            print()
+
             await self._upload_users()
+            await asyncio.sleep(3)
+
+            self.logger.info("===========================")
+            print()
 
             if all((
                 self.analytics_uploaded,

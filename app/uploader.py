@@ -1,10 +1,12 @@
 import asyncio
 import logging
 import os
+from turtledemo.penrose import start
+
 import urllib3
 import yaml
+import datetime
 
-from datetime import datetime
 from uuid import uuid4
 from pathlib import Path
 
@@ -72,6 +74,13 @@ class Uploader:
             "webkit": str(Path("browsers/webkit").absolute()),
         }
 
+        # Даты
+        self.dates_map = {
+            'yesterday': datetime.datetime.today() - datetime.timedelta(days=1),
+            'three_weeks_before': datetime.datetime.today() - datetime.timedelta(days=31),
+            'today': datetime.datetime.today(),
+        }
+
     async def run(self):
         """Агла!"""
 
@@ -128,7 +137,13 @@ class Uploader:
         await self._setup_upload(self.SPECIALISTS)
 
         for action in self.config["specialists_actions"]:
-            await self.click(action)
+            if action.get("is_date", False):
+                _start = self.dates_map[action["start"]]
+                _end = self.dates_map[action["end"]]
+
+                await self.fill_dates(action, _start, _end)
+            else:
+                await self.click(action)
 
         seconds = 0
 
@@ -142,9 +157,41 @@ class Uploader:
         self.logger.info(f"[Uploader] Специалисты загружены.")
         await asyncio.sleep(100)
 
+    async def click(self, action):
+        self.logger.info(f"[Uploader] Клик: {action['elem']}")
+
+        if text_to_search := action.get("text_to_search"):
+            inner_text = await self.page.locator(action["id"]).inner_text()
+
+            if not text_to_search in inner_text:
+                self.logger.error(f"[Uploader] Не найден элемент {text_to_search}")
+                raise Exception
+
+            locator = self.page.locator(f"{action['root_node']} >> text={text_to_search}")
+            await locator.click()
+        else:
+            await self.page.click(action["id"])
+
+        self.logger.info('[Uploader]\t- готово.')
+
+    async def fill_dates(self, action, _start, _end):
+        self.logger.info(f"[Uploader] Ввод: {action['elem']}")
+
+        container = self.page.locator(action["id"])
+        row = container.locator(action["row_text"])
+
+        await row.click()
+        await self.page.keyboard.type(_start)
+        await asyncio.sleep(0.5)
+        await self.page.keyboard.press("Tab")
+        await asyncio.sleep(0.5)
+        await self.page.keyboard.type(_end)
+        await asyncio.sleep(0.5)
+        await self.page.keyboard.press("Tab")
+
     async def _setup_upload(self, active_download):
         self.active_download = active_download
-        now = datetime.now().strftime('d%d_m%m_y%Y')
+        now = datetime.datetime.now().strftime('d%d_m%m_y%Y')
         self.filename = f'{active_download}__{now}__{uuid4().hex[:4]}.csv'
 
         # Обновить параметры для перехватчика
@@ -305,23 +352,6 @@ class Uploader:
             await self.service.update_download_targets(self.redirect_dir, self.filename)
         except Exception as e:
             self.logger.warning(f"[Uploader] Не удалось обновить параметры скачивания: {e.args[0]}")
-
-    async def click(self, action):
-        self.logger.info(f"[Uploader] Клик: {action['elem']}")
-
-        if text_to_search := action.get("text_to_search"):
-            inner_text = await self.page.locator(action["id"]).inner_text()
-
-            if not text_to_search in inner_text:
-                self.logger.error(f"[Uploader] Не найден элемент {text_to_search}")
-                raise Exception
-
-            locator = self.page.locator(f"{action['root_node']} >> text={text_to_search}")
-            await locator.click()
-        else:
-            await self.page.click(action["id"])
-
-        self.logger.info('[Uploader]\t- готово.')
 
     async def _extract_download_params_async(self) -> None:
         """Асинхронно извлечь параметры скачивания при их появлении (через сервис)."""

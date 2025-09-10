@@ -104,10 +104,23 @@ class Uploader:
             await self._connect_to_socket()
 
             await self._upload_analytics()
-            #await self._upload_specialists()
-            #await self._upload_users()
+            await self._upload_specialists()
+            await self._upload_users()
 
-            await asyncio.sleep(1000)
+            if all((
+                self.analytics_uploaded,
+                self.specialists_uploaded,
+                self.users_uploaded,
+            )):
+                self.logger.info("Загрузки завершены, начало обработки файлов.")
+            else:
+                self.logger.error(
+                    f"Проблемы с загрузкой файлов:"
+                    f"\nАналитики: {self.analytics_uploaded}"
+                    f"\nСпециалисты {self.specialists_uploaded}"
+                    f"\nПациенты {self.users_uploaded}"
+                )
+
         except Exception as e:
             self.logger.error(e.args[0])
             await self.shutdown()

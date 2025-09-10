@@ -1,5 +1,6 @@
 import asyncio
 
+from database.db_manager import check_db
 from uploader import Uploader
 
 
@@ -13,4 +14,5 @@ async def main():
 
 
 if __name__ == "__main__":
+    check_db()
     asyncio.run(main())

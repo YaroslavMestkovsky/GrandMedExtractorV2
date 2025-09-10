@@ -23,6 +23,7 @@ from playwright.async_api import (
     Page,
 )
 
+from manager import SQLManager, BitrixManager
 from service import SocketService
 
 
@@ -37,8 +38,10 @@ class Uploader:
         self.config = self._load_config(config_path)
         self._setup_logging()
 
-        # Сервис загрузки
+        # Сервисы
         self.service: Optional[SocketService] = None
+        self.sql_manager: Optional[SQLManager] = SQLManager(logger=self.logger)
+        self.bitrix_manager: Optional[BitrixManager] = BitrixManager(logger=self.logger)
 
         # Браузер
         self.playwright = None
@@ -95,7 +98,7 @@ class Uploader:
                 self.redirect_dir.mkdir(parents=True, exist_ok=True)
                 await self._inject_web_socket()
             except Exception as e:
-                self.logger.warning(f"[Uploader] Не удалось включить перенаправление загрузок: {e.args[0]}")
+                self.logger.warning(f"[Uploader] Не удалось включить перенаправление загрузок: {e}")
 
             await self.page.goto(self.config["site"]["url"])
 
@@ -123,19 +126,19 @@ class Uploader:
                 self.specialists_uploaded,
                 self.users_uploaded,
             )):
-                self.logger.info("Загрузки завершены, начало обработки файлов.")
-                self._process_files()
+                self.logger.info("[Uploader] Загрузки завершены, начало обработки файлов.")
+
             else:
                 self.logger.error(
-                    f"Проблемы с загрузкой файлов:"
+                    f"[Uploader] Проблемы с загрузкой файлов:"
                     f"\nАналитики: {self.analytics_uploaded}"
                     f"\nСпециалисты {self.specialists_uploaded}"
                     f"\nПациенты {self.users_uploaded}"
                 )
-                self._process_files()
 
+            self._process_files()
         except Exception as e:
-            self.logger.error(e.args[0])
+            self.logger.error(e)
             await self._shutdown()
         finally:
             await self._shutdown()
@@ -223,10 +226,10 @@ class Uploader:
         }
 
         for file in self.files_to_process:
-            path = f'{self.redirect_dir}/{file}'
+            path = self.redirect_dir.joinpath(file)
 
             if self.analytics in file:
-                skip_rows = 3
+                skip_rows = 2
                 bottom_drops = [-1]
                 func = 'a'
             elif self.specialists in file:
@@ -238,27 +241,34 @@ class Uploader:
                 bottom_drops = [-1]
                 func = 'u'
             else:
-                self.logger.error(f"Ошибка при обработке файла: {file}")
+                self.logger.error(f"[Uploader] Ошибка при обработке файла: {file}")
                 raise Exception
 
             df = pd.read_csv(path, skiprows=skip_rows, encoding='cp1251', delimiter=';')
 
-            for _index in bottom_drops:
-                df = df.drop(df.index[_index])
+            indices_to_drop = [df.index[i] for i in bottom_drops]
+            df = df.drop(indices_to_drop)
 
             funcs[func](df)
+            print()
 
     def _process_analytics(self, df):
         """Обработка файла аналитик."""
 
+        self.sql_manager.process_analytics(df)
+        self.logger.info("[Uploader] Аналитики обработаны.")
 
     def _process_specialists(self, df):
         """Обработка файла спецов."""
 
+        self.sql_manager.process_specialists(df)
+        self.logger.info("[Uploader] Специалисты обработаны.")
 
     def _process_users(self, df):
         """Обработка файла юзеров."""
 
+        self.bitrix_manager.process(df)
+        self.logger.info("[Uploader] Пользователи обработаны.")
 
     async def click(self, action):
         self.logger.info(f"[Uploader] Действие: {action['elem']}")
@@ -375,7 +385,7 @@ class Uploader:
         self.logger.info("[Uploader] Браузер успешно инициализирован")
 
     async def _log_in(self):
-        self.logger.info("Аутентификация...")
+        self.logger.info("[Uploader] Аутентификация...")
 
         for action in self.config["log_in_actions"]:
             action_type = action["type"]
@@ -453,7 +463,7 @@ class Uploader:
             await self.service.inject_interceptor()
             self.logger.info("[Uploader] JS перехватчик инжектирован в веб-сокет.")
         except Exception as e:
-            self.logger.warning(f"[Uploader] Не удалось инжектировать JS перехватчик WS: {e.args[0]}")
+            self.logger.warning(f"[Uploader] Не удалось инжектировать JS перехватчик WS: {e}")
 
     async def _update_download_params(self) -> None:
         """Обновить параметры скачивания (директория и имя) в окне."""
@@ -461,7 +471,7 @@ class Uploader:
         try:
             await self.service.update_download_targets(self.redirect_dir, self.filename)
         except Exception as e:
-            self.logger.warning(f"[Uploader] Не удалось обновить параметры скачивания: {e.args[0]}")
+            self.logger.warning(f"[Uploader] Не удалось обновить параметры скачивания: {e}")
 
     async def _extract_download_params_async(self) -> None:
         """Асинхронно извлечь параметры скачивания при их появлении (через сервис)."""
@@ -474,7 +484,7 @@ class Uploader:
             if self.service.cookies and not self.cookies:
                 self.cookies = self.service.cookies
         except Exception as e:
-            self.logger.warning(f"[Uploader] Не удалось извлечь параметры заранее: {e.args[0]}")
+            self.logger.warning(f"[Uploader] Не удалось извлечь параметры заранее: {e}")
 
     async def _get_download_params(self) -> None:
         """Получить параметры скачивания (через сервис)."""
@@ -485,7 +495,7 @@ class Uploader:
             if self.service.download_params:
                 self.download_params = self.service.download_params
         except Exception as e:
-            self.logger.warning(f"[Uploader] Не удалось получить параметры скачивания: {e.args[0]}")
+            self.logger.warning(f"[Uploader] Не удалось получить параметры скачивания: {e}")
 
     async def _get_cookies(self) -> None:
         """Получить cookies (через сервис)."""
@@ -495,7 +505,7 @@ class Uploader:
             if self.service.cookies:
                 self.cookies = self.service.cookies
         except Exception as e:
-            self.logger.warning(f"[Uploader] Не удалось получить cookies: {e.args[0]}")
+            self.logger.warning(f"[Uploader] Не удалось получить cookies: {e}")
 
     async def _download_file_via_http(self) -> bool:
         """Скачать файл через HTTP-запрос используя параметры из WebSocket."""
@@ -536,7 +546,7 @@ class Uploader:
                 self.logger.error(f"[Uploader] Не удалось скачать файл '{self.filename}' через HTTP.")
 
         except Exception as e:
-            self.logger.error(f"[Uploader] Ошибка при обработке HTTP-скачивания: {e.args[0]}")
+            self.logger.error(f"[Uploader] Ошибка при обработке HTTP-скачивания: {e}")
 
     async def _shutdown(self) -> None:
         """Корректное завершение Playwright и браузера."""

@@ -278,7 +278,7 @@ class Uploader:
             self.browser = await self.playwright.chromium.launch(
                 headless=False,
                 executable_path=executable_path,
-                args=["--ignore-certificate-errors"],
+                args=["--start-maximized", "--ignore-certificate-errors"],
             )
 
         # Настраиваем контекст с отключенным автоматического открытия файлов

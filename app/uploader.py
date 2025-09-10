@@ -44,6 +44,7 @@ class Uploader:
         self.browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
+        self.base_timeout = 30000
 
         # Сокет
         self.websockets_list: list = []
@@ -168,9 +169,9 @@ class Uploader:
                 raise Exception
 
             locator = self.page.locator(f"{action['root_node']} >> text={text_to_search}")
-            await locator.click(timeout=action["timeout"])
+            await locator.click(timeout=action.get("timeout", self.base_timeout))
         else:
-            await self.page.click(action["id"], timeout=action["timeout"])
+            await self.page.click(action["id"], timeout=action.get("timeout", self.base_timeout))
 
         self.logger.info('[Uploader]\t- готово.')
 

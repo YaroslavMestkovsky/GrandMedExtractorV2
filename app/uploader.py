@@ -181,11 +181,11 @@ class Uploader:
         row = container.locator(action["row_text"])
 
         await row.click()
-        await self.page.keyboard.type(_start)
+        await self.page.keyboard.type(_start.strftime('%d.%m.%Y'))
         await asyncio.sleep(0.5)
         await self.page.keyboard.press("Tab")
         await asyncio.sleep(0.5)
-        await self.page.keyboard.type(_end)
+        await self.page.keyboard.type(_end.strftime('%d.%m.%Y'))
         await asyncio.sleep(0.5)
         await self.page.keyboard.press("Tab")
 

@@ -3,6 +3,7 @@ import logging
 import os
 from turtledemo.penrose import start
 
+import pandas as pd
 import urllib3
 import yaml
 import datetime
@@ -54,6 +55,7 @@ class Uploader:
         # Файлы
         self.redirect_dir: Path = Path(self.config["download"]["output_dir"]).absolute()
         self.filename: str = 'dummy'
+        self.files_to_process: list = []
         self.download_params: Optional[Dict[str, Any]] = None
         self.cookies: Dict[str, str] = {}
 
@@ -64,9 +66,9 @@ class Uploader:
 
         # Текущее активное скачивание
         self.active_download: Optional[str] = None
-        self.USERS = 'users'
-        self.ANALYTICS = 'analytics'
-        self.SPECIALISTS = 'specialists'
+        self.users = 'users'
+        self.analytics = 'analytics'
+        self.specialists = 'specialists'
 
         # Пути к локальным браузерам
         self.browser_paths = {
@@ -102,27 +104,19 @@ class Uploader:
 
             await self._log_in()
             await self._connect_to_socket()
-
-            self.logger.info("===========================")
             print()
 
-            await self._upload_analytics()
-            await asyncio.sleep(3)
+            #await self._upload_analytics()
+            #await asyncio.sleep(3)
+            #print()
 
-            self.logger.info("===========================")
-            print()
+            #await self._upload_specialists()
+            #await asyncio.sleep(3)
+            #print()
 
-            await self._upload_specialists()
-            await asyncio.sleep(3)
-
-            self.logger.info("===========================")
-            print()
-
-            await self._upload_users()
-            await asyncio.sleep(3)
-
-            self.logger.info("===========================")
-            print()
+            #await self._upload_users()
+            #await asyncio.sleep(3)
+            #print()
 
             if all((
                 self.analytics_uploaded,
@@ -130,6 +124,7 @@ class Uploader:
                 self.users_uploaded,
             )):
                 self.logger.info("Загрузки завершены, начало обработки файлов.")
+                self._process_files()
             else:
                 self.logger.error(
                     f"Проблемы с загрузкой файлов:"
@@ -137,18 +132,19 @@ class Uploader:
                     f"\nСпециалисты {self.specialists_uploaded}"
                     f"\nПациенты {self.users_uploaded}"
                 )
+                self._process_files()
 
         except Exception as e:
             self.logger.error(e.args[0])
-            await self.shutdown()
+            await self._shutdown()
         finally:
-            await self.shutdown()
+            await self._shutdown()
 
     async def _upload_users(self):
         """Запуск формирования отчета по юзерам."""
 
         self.logger.info("[Uploader] Начало загрузки Пациентов")
-        await self._setup_upload(self.USERS)
+        await self._setup_upload(self.users)
 
         for action in self.config["users_actions"]:
             await self.click(action)
@@ -171,7 +167,7 @@ class Uploader:
         """Запуск формирования отчета по специалистам."""
 
         self.logger.info("[Uploader] Начало загрузки Специалистов")
-        await self._setup_upload(self.SPECIALISTS)
+        await self._setup_upload(self.specialists)
 
         for action in self.config["specialists_actions"]:
             if action.get("is_date", False):
@@ -201,7 +197,7 @@ class Uploader:
         """Запуск формирования отчета по аналитикам."""
 
         self.logger.info("[Uploader] Начало загрузки Аналитик")
-        await self._setup_upload(self.ANALYTICS)
+        await self._setup_upload(self.analytics)
 
         for action in self.config["analytics_actions"]:
             await self.click(action)
@@ -216,6 +212,54 @@ class Uploader:
 
         print()
         self.logger.info("[Uploader] Аналитики загружены.")
+
+    def _process_files(self):
+        """Обработка и загрузка в БД скачанных файлов."""
+
+        funcs = {
+            'a': self._process_analytics,
+            's': self._process_specialists,
+            'u': self._process_users,
+        }
+
+        for file in self.files_to_process:
+            path = f'{self.redirect_dir}/{file}'
+
+            if self.analytics in file:
+                skip_rows = 3
+                bottom_drops = [-1]
+                func = 'a'
+            elif self.specialists in file:
+                skip_rows = 2
+                bottom_drops = []
+                func = 's'
+            elif self.users in file:
+                skip_rows = 2
+                bottom_drops = [-1]
+                func = 'u'
+            else:
+                self.logger.error(f"Ошибка при обработке файла: {file}")
+                raise Exception
+
+            df = pd.read_csv(path, skiprows=skip_rows, encoding='cp1251', delimiter=';')
+
+            for _index in bottom_drops:
+                df = df.drop(df.index[_index])
+
+            funcs[func](df)
+
+    def _process_analytics(self, df):
+        """Обработка файла аналитик."""
+
+
+    def _process_specialists(self, df):
+        """Обработка файла спецов."""
+
+
+    def _process_users(self, df):
+        """Обработка файла юзеров."""
+
+
 
     async def click(self, action):
         self.logger.info(f"[Uploader] Действие: {action['elem']}")
@@ -255,25 +299,14 @@ class Uploader:
         await self.page.keyboard.press("Tab")
 
     async def _setup_upload(self, active_download):
-        self.active_download = active_download
         now = datetime.datetime.now().strftime('d%d_m%m_y%Y')
+
+        self.active_download = active_download
         self.filename = f'{active_download}__{now}__{uuid4().hex[:4]}.csv'
+        self.files_to_process.append(self.filename)
 
         # Обновить параметры для перехватчика
         await self._update_download_params()
-
-    def _load_config(self, config_path: str) -> Dict[str, Any]:
-        """Загрузка конфигурации из YAML файла.
-
-        Args:
-            config_path: Путь к файлу конфигурации
-
-        Returns:
-            Dict[str, Any]: Загруженная конфигурация
-        """
-
-        with open(config_path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f)
 
     def _setup_logging(self) -> None:
         """Настройка логирования."""
@@ -375,11 +408,11 @@ class Uploader:
         websocket_url = self.config["site"]["web-socket"]
 
         def on_writefileend(_payload: str) -> None:
-            if self.active_download == self.USERS:
+            if self.active_download == self.users:
                 self.users_uploaded = True
-            elif self.active_download == self.ANALYTICS:
+            elif self.active_download == self.analytics:
                 self.analytics_uploaded = True
-            elif self.active_download == self.SPECIALISTS:
+            elif self.active_download == self.specialists:
                 self.specialists_uploaded = True
 
             asyncio.create_task(self._process_download_via_http())
@@ -495,7 +528,7 @@ class Uploader:
         except Exception as e:
             self.logger.error(f"[Uploader] Ошибка при обработке HTTP-скачивания: {e.args[0]}")
 
-    async def shutdown(self) -> None:
+    async def _shutdown(self) -> None:
         """Корректное завершение Playwright и браузера."""
         try:
             if self.page is not None:
@@ -517,6 +550,20 @@ class Uploader:
                 await self.playwright.stop()
         except Exception:
             pass
+
+    @staticmethod
+    def _load_config(config_path: str) -> Dict[str, Any]:
+        """Загрузка конфигурации из YAML файла.
+
+        Args:
+            config_path: Путь к файлу конфигурации
+
+        Returns:
+            Dict[str, Any]: Загруженная конфигурация
+        """
+
+        with open(config_path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
 
     @staticmethod
     def _extract_payload(frame):

@@ -316,13 +316,15 @@ class Uploader:
         self.logger.info("[Uploader] Браузер успешно инициализирован")
 
     async def _log_in(self):
+        self.logger.info("Аутентификация...")
+
         for action in self.config["log_in_actions"]:
             action_type = action["type"]
             selector = action.get("selector", None)
             description = action.get("description", "")
             reset_wss = action.get("reset_wss", "")
 
-            self.logger.info(f"[Uploader] Выполнение действия: {description}")
+            self.logger.debug(f"[Uploader] Выполнение действия: {description}")
 
             if reset_wss:
                 # Скидываем все веб-сокеты без авторизации
@@ -330,7 +332,7 @@ class Uploader:
 
             if action_type == "click" and selector:
                 await self.page.click(selector)
-                self.logger.info(f"[Uploader] \tВыполнено нажатие на элемент")
+                self.logger.debug(f"[Uploader] \tВыполнено нажатие на элемент")
             elif action_type == "input" and selector:
                 value = action["value"]
 
@@ -345,7 +347,9 @@ class Uploader:
                 await self.page.click(selector)
                 await self.page.type(selector, value)
 
-                self.logger.info(f"[Uploader] \tВведен текст {value} в элемент")
+                self.logger.debug(f"[Uploader] \tВведен текст {value} в элемент")
+
+        self.logger.info("\tГотово.")
 
     async def _connect_to_socket(self):
         """Подключение обработчиков к целевому WebSocket (через сервис)."""

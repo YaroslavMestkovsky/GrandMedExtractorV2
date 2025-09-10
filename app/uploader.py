@@ -103,8 +103,8 @@ class Uploader:
             await self._log_in()
             await self._connect_to_socket()
 
-            # self._upload_analytics()
-            await self._upload_specialists()
+            await self._upload_analytics()
+            #await self._upload_specialists()
             #await self._upload_users()
 
             await asyncio.sleep(1000)
@@ -117,6 +117,7 @@ class Uploader:
     async def _upload_users(self):
         """Запуск формирования отчета по юзерам."""
 
+        self.logger.info("[Uploader] Начало загрузки Пациентов")
         await self._setup_upload(self.USERS)
 
         for action in self.config["users_actions"]:
@@ -132,11 +133,11 @@ class Uploader:
 
         print()
         self.logger.info("[Uploader] Пациенты за предыдущий день загружены.")
-        await asyncio.sleep(5)
 
     async def _upload_specialists(self):
         """Запуск формирования отчета по специалистам."""
 
+        self.logger.info("[Uploader] Начало загрузки Специалистов")
         await self._setup_upload(self.SPECIALISTS)
 
         for action in self.config["specialists_actions"]:
@@ -162,6 +163,26 @@ class Uploader:
             await self.click(action)
 
         self.logger.info(f"[Uploader] Специалисты загружены.")
+
+    async def _upload_analytics(self):
+        """Запуск формирования отчета по аналитикам."""
+
+        self.logger.info("[Uploader] Начало загрузки Аналитик")
+        await self._setup_upload(self.ANALYTICS)
+
+        for action in self.config["analytics_actions"]:
+            await self.click(action)
+
+        seconds = 0
+
+        while not self.analytics_uploaded:
+            seconds += 1
+            print(f"\rОжидание загрузки: {seconds}...", end="", flush=True)
+
+            await asyncio.sleep(1)
+
+        print()
+        self.logger.info("[Uploader] Аналитики загружены.")
 
     async def click(self, action):
         self.logger.info(f"[Uploader] Действие: {action['elem']}")

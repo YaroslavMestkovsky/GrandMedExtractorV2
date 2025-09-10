@@ -146,6 +146,9 @@ class Uploader:
 
             await asyncio.sleep(1)
 
+        for action in self.config["users_after_upload_actions"]:
+            await self.click(action)
+
         print()
         self.logger.info("[Uploader] Пациенты за предыдущий день загружены.")
 

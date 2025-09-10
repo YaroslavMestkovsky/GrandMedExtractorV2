@@ -201,6 +201,9 @@ class Uploader:
         else:
             await self.page.click(action["id"], timeout=action.get("timeout", self.base_timeout))
 
+        if sleep := action.get("sleep"):
+            await asyncio.sleep(sleep)
+
         self.logger.info('[Uploader]\t- готово.')
 
     async def fill_dates(self, action, _start, _end):

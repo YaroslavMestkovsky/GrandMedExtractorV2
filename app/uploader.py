@@ -168,9 +168,9 @@ class Uploader:
                 raise Exception
 
             locator = self.page.locator(f"{action['root_node']} >> text={text_to_search}")
-            await locator.click()
+            await locator.click(timeout=action["timeout"])
         else:
-            await self.page.click(action["id"])
+            await self.page.click(action["id"], timeout=action["timeout"])
 
         self.logger.info('[Uploader]\t- готово.')
 

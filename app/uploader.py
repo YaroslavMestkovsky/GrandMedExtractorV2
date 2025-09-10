@@ -303,7 +303,16 @@ class Uploader:
 
         self.active_download = active_download
         self.filename = f'{active_download}__{now}__{uuid4().hex[:4]}.csv'
-        self.files_to_process.append(self.filename)
+
+        # Сброс параметров загрузки перед новым формированием отчёта
+        self.download_params = None
+        self.service.download_params = None
+
+        try:
+            await self.page.evaluate('() => { window.__DOWNLOAD_PARAMS = undefined; }')
+            self.logger.debug('[Uploader] Сброшены параметры скачивания в окне')
+        except Exception:
+            pass
 
         # Обновить параметры для перехватчика
         await self._update_download_params()
@@ -473,6 +482,7 @@ class Uploader:
 
         try:
             await self.service.ensure_params()
+
             if self.service.download_params:
                 self.download_params = self.service.download_params
         except Exception as e:
@@ -509,9 +519,10 @@ class Uploader:
             # Небольшая задержка, чтобы параметры успели извлечься
             await asyncio.sleep(0.5)
 
-            # Если параметры еще не получены, пытаемся их получить
-            if not self.download_params:
-                await self._get_download_params()
+            # Принудительно получить свежие параметры для текущего отчёта
+            self.download_params = None
+            self.service.download_params = None
+            await self._get_download_params()
 
             # Если cookies еще не получены, пытаемся их получить
             if not self.cookies:

@@ -106,17 +106,17 @@ class Uploader:
             await self._connect_to_socket()
             print()
 
-            #await self._upload_analytics()
-            #await asyncio.sleep(3)
-            #print()
+            await self._upload_analytics()
+            await asyncio.sleep(3)
+            print()
 
-            #await self._upload_specialists()
-            #await asyncio.sleep(3)
-            #print()
+            await self._upload_specialists()
+            await asyncio.sleep(3)
+            print()
 
-            #await self._upload_users()
-            #await asyncio.sleep(3)
-            #print()
+            await self._upload_users()
+            await asyncio.sleep(3)
+            print()
 
             if all((
                 self.analytics_uploaded,
@@ -258,7 +258,6 @@ class Uploader:
 
     def _process_users(self, df):
         """Обработка файла юзеров."""
-
 
 
     async def click(self, action):

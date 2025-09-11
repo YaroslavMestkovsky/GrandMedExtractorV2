@@ -28,6 +28,8 @@ def upload():
     }
 
     for file in files_to_process:
+        logger.info(f'Обработка файла {file}...')
+
         if 'analytics' in file:
             skip_rows = 2
             bottom_drops = [-1]

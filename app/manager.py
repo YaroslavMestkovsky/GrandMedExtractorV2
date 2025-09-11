@@ -120,8 +120,10 @@ class SQLManager:
 
                 self.session.bulk_insert_mappings(model, chunk)
                 self.session.commit()
-                self.logger.info(f"[Manager] Загружено {len(chunk)}/{total_rows} записей...")
 
+                print(f"\r[Manager] Загружено {i}/{total_rows} записей...", end="", flush=True)
+
+            print()
             self.logger.info(f"[Manager] Успешно загружено {total_rows} новых записей по {entity}.")
         except Exception as e:
             self.session.rollback()

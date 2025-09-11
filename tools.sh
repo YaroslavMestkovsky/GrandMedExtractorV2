@@ -1,17 +1,19 @@
 #!/bin/bash
 
-# Пути относительно текущей директории
-VENV_RELATIVE_PATH="venv/Scripts/Activate"  # Для Windows (venv\Scripts\activate)
-PYTHON_SCRIPT="app/run_tools.py"                  # Python-файл
-REQUIREMENTS="requirements.txt"                  # Файл зависимостей
+# Определяем директорию скрипта (корень проекта)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Полный абсолютный путь к текущей директории (для отладки)
-CURRENT_DIR=$(pwd)
-echo "Текущая директория: $CURRENT_DIR"
+# Пути на основе директории скрипта
+VENV_PATH="$SCRIPT_DIR/venv/Scripts/activate"   # Для Git-Bash/WSL
+PYTHON_SCRIPT="$SCRIPT_DIR/app/run_tools.py"     # Python-файл
+REQUIREMENTS="$SCRIPT_DIR/requirements.txt"      # Файл зависимостей
+
+# Полный путь к директории скрипта (для отладки)
+echo "Директория скрипта: $SCRIPT_DIR"
 
 # Проверка наличия виртуального окружения
-if [ ! -f "$VENV_RELATIVE_PATH" ]; then
-    echo "Ошибка: Виртуальное окружение не найдено по пути $VENV_RELATIVE_PATH"
+if [ ! -f "$VENV_PATH" ]; then
+    echo "Ошибка: Виртуальное окружение не найдено по пути $VENV_PATH"
     sleep 10  # Задержка перед закрытием
     exit 1
 fi
@@ -25,10 +27,10 @@ fi
 
 # Активация виртуального окружения
 echo "Активация виртуального окружения..."
-source "$VENV_RELATIVE_PATH"
+source "$VENV_PATH"
 
-# Добавление текущей директории в PYTHONPATH для импорта модулей app
-export PYTHONPATH="$CURRENT_DIR:$PYTHONPATH"
+# Добавление корня проекта в PYTHONPATH (для импортов app.*)
+export PYTHONPATH="$SCRIPT_DIR:${PYTHONPATH}"
 
 # Проверка, что Python доступен
 if ! command -v python &> /dev/null; then

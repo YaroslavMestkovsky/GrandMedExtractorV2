@@ -4,7 +4,7 @@ import logging
 import pandas as pd
 
 from manager import SQLManager, BitrixManager
-from service import SocketService
+from database.db_manager import check_db
 
 
 def upload():
@@ -56,3 +56,8 @@ def upload():
         df = df.drop(indices_to_drop)
 
         funcs[func](df)
+
+
+if __name__ == '__main__':
+    check_db()
+    upload()

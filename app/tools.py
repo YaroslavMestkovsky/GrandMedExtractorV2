@@ -17,7 +17,7 @@ def upload():
     logging.basicConfig(**log_params)
     logger = logging.getLogger(__name__)
 
-    files_to_process = os.listdir('files')
+    files_to_process = os.listdir('app/files')
     sql_manager = SQLManager(logger)
     bitrix_manager = BitrixManager(logger)
 
@@ -45,7 +45,7 @@ def upload():
             raise Exception
 
         df = pd.read_csv(
-            f'files/{file}',
+            f'app/files/{file}',
             skiprows=skip_rows,
             encoding='cp1251',
             delimiter=';',

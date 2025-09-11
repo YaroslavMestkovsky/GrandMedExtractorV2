@@ -1,7 +1,7 @@
 import asyncio
 
-from database.db_manager import check_db
-from uploader import Uploader
+from app.database.db_manager import check_db
+from app.uploader import Uploader
 
 
 async def main():

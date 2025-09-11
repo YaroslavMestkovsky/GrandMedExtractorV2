@@ -23,8 +23,8 @@ from playwright.async_api import (
     Page,
 )
 
-from manager import SQLManager, BitrixManager
-from service import SocketService
+from app.manager import SQLManager, BitrixManager
+from app.service import SocketService
 
 
 # Отключение предупреждения о небезопасных HTTPS-запросах

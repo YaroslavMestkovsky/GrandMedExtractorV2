@@ -4,6 +4,7 @@ import logging
 import pandas as pd
 
 from app.manager import SQLManager, BitrixManager
+from app.service import SocketService
 
 
 def upload():

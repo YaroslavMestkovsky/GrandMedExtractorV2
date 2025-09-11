@@ -5,7 +5,7 @@ Base = declarative_base()
 
 
 class Analytics(Base):
-    __tablename__ = 'grandmed_analytics'
+    __tablename__ = 'grandmed_qms_analytics'
 
     id = Column(Integer, primary_key=True)
     registration_number = Column(String, nullable=True, comment='Рег.№')
@@ -57,7 +57,7 @@ class Analytics(Base):
 
 
 class Specialists(Base):
-    __tablename__ = 'grandmed_specialists'
+    __tablename__ = 'grandmed_qms_specialists'
 
     id = Column(Integer, primary_key=True)
     material_number = Column(String, unique=True, comment='Номер материала')

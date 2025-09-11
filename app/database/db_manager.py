@@ -8,7 +8,7 @@ from sqlalchemy import (
     inspect,
 )
 
-from database.models import (
+from models import (
     Analytics,
     Specialists,
 )

@@ -45,7 +45,7 @@ def upload():
             raise Exception
 
         df = pd.read_csv(
-            f'app/tools/files/{file}',
+            f'files/{file}',
             skiprows=skip_rows,
             encoding='cp1251',
             delimiter=';',

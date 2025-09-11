@@ -1,6 +1,6 @@
 .idea
 browsers
+files
 /app/downloads/
-/app/tools/files/
 *.yaml
 *.conf

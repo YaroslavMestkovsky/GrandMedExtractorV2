@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Пути на основе директории скрипта
 VENV_PATH="$SCRIPT_DIR/venv/Scripts/activate"   # Для Git-Bash/WSL
-PYTHON_SCRIPT="$SCRIPT_DIR/app/run_tools.py"     # Python-файл
+PYTHON_SCRIPT="$SCRIPT_DIR/app/tools.py"     # Python-файл
 REQUIREMENTS="$SCRIPT_DIR/requirements.txt"      # Файл зависимостей
 
 # Полный путь к директории скрипта (для отладки)

@@ -1,4 +1,4 @@
-from app.database.models import Specialists, Analytics
+from database.models import Specialists, Analytics
 
 
 SPECIALISTS = {

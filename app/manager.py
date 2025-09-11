@@ -10,9 +10,9 @@ from typing import Any
 from pandas import NaT
 from sqlalchemy import select
 
-from app.database.db_manager import get_session
-from app.database.models import Analytics, Specialists
-from app.enums import ANALYTICS, SPECIALISTS, BitrixDealsEnum
+from database.db_manager import get_session
+from database.models import Analytics, Specialists
+from enums import ANALYTICS, SPECIALISTS, BitrixDealsEnum
 
 
 # Отключаем все предупреждения urllib3

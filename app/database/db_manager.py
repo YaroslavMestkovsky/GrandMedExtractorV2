@@ -8,7 +8,7 @@ from sqlalchemy import (
     inspect,
 )
 
-from models import (
+from database.models import ( #todo починить, заменив все на абсолютные импорты из app
     Analytics,
     Specialists,
 )

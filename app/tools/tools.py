@@ -56,8 +56,3 @@ def upload():
         df = df.drop(indices_to_drop)
 
         funcs[func](df)
-
-
-if __name__ == '__main__':
-    check_db()
-    upload()

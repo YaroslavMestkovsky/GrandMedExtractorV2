@@ -3,7 +3,6 @@ import os
 import logging
 import pandas as pd
 
-from app.database.db_manager import check_db
 from app.manager import SQLManager, BitrixManager
 
 

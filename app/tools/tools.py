@@ -3,6 +3,7 @@ import os
 import logging
 import pandas as pd
 
+from app.database.db_manager import check_db
 from app.manager import SQLManager, BitrixManager
 
 
@@ -43,12 +44,20 @@ def upload():
             logger.error(f"[Uploader] Ошибка при обработке файла: {file}")
             raise Exception
 
-        df = pd.read_csv(f'app/tools/files/{file}', skiprows=skip_rows, encoding='cp1251', delimiter=';')
+        df = pd.read_csv(
+            f'app/tools/files/{file}',
+            skiprows=skip_rows,
+            encoding='cp1251',
+            delimiter=';',
+            low_memory=False,
+        )
 
         indices_to_drop = [df.index[i] for i in bottom_drops]
         df = df.drop(indices_to_drop)
 
         funcs[func](df)
 
+
 if __name__ == '__main__':
+    check_db()
     upload()

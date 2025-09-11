@@ -244,7 +244,13 @@ class Uploader:
                 self.logger.error(f"[Uploader] Ошибка при обработке файла: {file}")
                 raise Exception
 
-            df = pd.read_csv(path, skiprows=skip_rows, encoding='cp1251', delimiter=';')
+            df = pd.read_csv(
+                path,
+                skiprows=skip_rows,
+                encoding='cp1251',
+                delimiter=';',
+                low_memory=False,
+            )
 
             indices_to_drop = [df.index[i] for i in bottom_drops]
             df = df.drop(indices_to_drop)

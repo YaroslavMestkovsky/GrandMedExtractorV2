@@ -7,8 +7,6 @@ Base = declarative_base()
 class Analytics(Base):
     __tablename__ = 'grandmed_analytics'
 
-    id = Column(Integer, primary_key=True, autoincrement=True, comment="Уникальный идентификатор записи")
-
     id = Column(Integer, primary_key=True)
     registration_number = Column(String, nullable=True, comment='Рег.№')
     full_name = Column(String, nullable=True, comment='ФИО')
@@ -55,6 +53,7 @@ class Analytics(Base):
     episode_end_date = Column(String, nullable=True, comment='Дата завершения эпизода')
     date = Column(String, nullable=True, comment='Дата')
     birth_date = Column(String, nullable=True, comment='ДР')
+    paid_destination_num = Column(String, nullable=True, comment='Номер оплачиваемого назначения')
 
 
 class Specialists(Base):

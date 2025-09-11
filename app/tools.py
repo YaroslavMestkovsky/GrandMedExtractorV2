@@ -3,8 +3,8 @@ import os
 import logging
 import pandas as pd
 
-from app.manager import SQLManager, BitrixManager
-from app.service import SocketService
+from manager import SQLManager, BitrixManager
+from service import SocketService
 
 
 def upload():

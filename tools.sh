@@ -2,7 +2,7 @@
 
 # Пути относительно текущей директории
 VENV_RELATIVE_PATH="venv/Scripts/Activate"  # Для Windows (venv\Scripts\activate)
-PYTHON_SCRIPT="app/tools/script.py"                  # Python-файл
+PYTHON_SCRIPT="app/tools/tools.py"                  # Python-файл
 REQUIREMENTS="requirements.txt"                  # Файл зависимостей
 
 # Полный абсолютный путь к текущей директории (для отладки)

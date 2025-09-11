@@ -27,6 +27,9 @@ fi
 echo "Активация виртуального окружения..."
 source "$VENV_RELATIVE_PATH"
 
+# Добавление текущей директории в PYTHONPATH для импорта модулей app
+export PYTHONPATH="$CURRENT_DIR:$PYTHONPATH"
+
 # Проверка, что Python доступен
 if ! command -v python &> /dev/null; then
     echo "Ошибка: Python не найден в системе или виртуальном окружении"

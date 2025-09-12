@@ -100,9 +100,9 @@ class Uploader:
             except Exception as e:
                 self.logger.warning(f"[Uploader] Не удалось включить перенаправление загрузок: {e}")
 
-            await self.page.goto(self.config["site"]["url"])
-
             url = self.config["site"]["url"]
+
+            await self.page.goto(url)
             self.logger.info(f"[Uploader] Переход на страницу {url}")
 
             await self._log_in()
@@ -318,6 +318,7 @@ class Uploader:
 
         self.active_download = active_download
         self.filename = f'{active_download}__{now}__{uuid4().hex[:4]}.csv'
+        self.files_to_process.append(self.filename)
 
         # Сброс параметров загрузки перед новым формированием отчёта
         self.download_params = None

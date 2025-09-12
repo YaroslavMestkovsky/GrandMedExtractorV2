@@ -31,7 +31,7 @@ def upload():
         logger.info(f'Обработка файла {file}...')
 
         if 'analytics' in file:
-            skip_rows = 2
+            skip_rows = 3
             bottom_drops = [-1]
             func = 'a'
         elif 'specialists' in file:

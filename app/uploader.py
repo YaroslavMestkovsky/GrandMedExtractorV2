@@ -229,7 +229,7 @@ class Uploader:
             path = self.redirect_dir.joinpath(file)
 
             if self.analytics in file:
-                skip_rows = 2
+                skip_rows = 3
                 bottom_drops = [-1]
                 func = 'a'
             elif self.specialists in file:

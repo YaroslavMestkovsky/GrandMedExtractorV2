@@ -158,23 +158,23 @@ class Uploader:
                 choices = action["choices"]
 
                 if today == self.from_scratch_dates["year_first_day"]:
-                    self.logger.info("Выгрузка за предыдущий год.")
+                    self.logger.info("[Uploader] Выгрузка за предыдущий год.")
                     action["text_to_search"] = choices["last_year"]
 
                 elif today in self.from_scratch_dates["quarters_first_days"]:
-                    self.logger.info("Выгрузка за предыдущий квартал")
+                    self.logger.info("[Uploader] Выгрузка за предыдущий квартал")
                     action["text_to_search"] = choices[self.quarters_first_days[today]]
 
                 elif today in self.from_scratch_dates["months_first_week_days"]:
-                    self.logger.info("Выгрузка за предыдущий месяц.")
+                    self.logger.info("[Uploader] Выгрузка за предыдущий месяц.")
                     action["text_to_search"] = choices["last_month"]
 
                 elif today in self.from_scratch_dates["mondays"]:
-                    self.logger.info("Выгрузка за предыдущую неделю.")
+                    self.logger.info("[Uploader] Выгрузка за предыдущую неделю.")
                     action["text_to_search"] = choices["last_week"]
 
                 else:
-                    self.logger.info("Выгрузка за предыдущий день.")
+                    self.logger.info("[Uploader] Выгрузка за предыдущий день.")
                     action["text_to_search"] = choices["yesterday"]
                     self.from_scratch = False
 
@@ -319,7 +319,7 @@ class Uploader:
                 self.logger.error(f"[Uploader] Не найден элемент {text_to_search}")
                 raise Exception
 
-            locator = self.page.locator(f"{action['root_node']} >> text={text_to_search}")
+            locator = self.page.locator(f"{action['root_node']} >> text={text_to_search}").first
             await locator.click(timeout=action.get("timeout", self.base_timeout))
         elif key := action.get("key"):
             await self.page.keyboard.press(key)

@@ -43,7 +43,7 @@ def upload():
             bottom_drops = [-1]
             func = 'u'
         else:
-            logger.error(f"[Uploader] Ошибка при обработке файла: {file}")
+            logger.error(f"Ошибка при обработке файла: {file}")
             raise Exception
 
         df = pd.read_csv(

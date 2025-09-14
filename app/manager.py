@@ -74,13 +74,13 @@ class SQLManager:
             date_start, date_end = min(_dates), max(_dates)
 
             self.logger.info(
-                f"Перезапись выгрузки за период: "
+                f"[Manager] Перезапись выгрузки за период: "
                 f"{date_start.strftime('%d.%m.%Y')} - {date_end.strftime('%d.%m.%Y')}",
             )
 
             _filter = Analytics.date.in_(dates)
             deleted_count = self.session.query(Analytics).filter(_filter).delete(synchronize_session=False)
-            self.logger.info(f"Удалено {deleted_count} записей.")
+            self.logger.info(f"[Manager] Удалено {deleted_count} записей.")
 
         self._bulk_upload(Analytics, records_to_insert, 'аналитикам')
 

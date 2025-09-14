@@ -153,7 +153,7 @@ class Uploader:
         await self._setup_upload(self.analytics)
 
         for action in self.config["analytics_actions"]:
-            if action["calculate_date"]:
+            if action.get("calculate_date"):
                 today = datetime.datetime.today()
                 choices = action["choices"]
 
@@ -419,15 +419,6 @@ class Uploader:
                     and _date.weekday() == 0
                 ):
                     mondays.append(_date)
-
-        mondays = [
-            datetime.datetime(current_year, month, day)
-            for month in range(1, 13)
-            for day in range(1, 8)
-            if datetime.datetime(current_year, month, day).weekday() == 0
-            and datetime.datetime(current_year, month, day) not in quarters_first_days
-            and datetime.datetime(current_year, month, day) not in months_first_week_days
-        ]
 
         self.from_scratch_dates = {
             "year_first_day": year_first_day, # Первый день в году перегружаем за предыдущий год

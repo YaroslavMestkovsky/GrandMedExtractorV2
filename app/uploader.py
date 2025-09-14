@@ -1,12 +1,12 @@
 import asyncio
 import logging
 import os
-from turtledemo.penrose import start
 
 import pandas as pd
 import urllib3
 import yaml
 import datetime
+import calendar
 
 from uuid import uuid4
 from pathlib import Path
@@ -66,6 +66,7 @@ class Uploader:
         self.analytics_uploaded = False
         self.specialists_uploaded = False
         self.users_uploaded = False
+        self.from_scratch = True
 
         # Текущее активное скачивание
         self.active_download: Optional[str] = None
@@ -86,6 +87,8 @@ class Uploader:
             'three_weeks_before': datetime.datetime.today() - datetime.timedelta(days=31),
             'today': datetime.datetime.today(),
         }
+        self.from_scratch_dates = {}
+        self._fill_from_scratches_dates()
 
     async def run(self):
         """Агла!"""
@@ -143,6 +146,51 @@ class Uploader:
         finally:
             await self._shutdown()
 
+    async def _upload_analytics(self):
+        """Запуск формирования отчета по аналитикам."""
+
+        self.logger.info("[Uploader] Начало загрузки Аналитик")
+        await self._setup_upload(self.analytics)
+
+        for action in self.config["analytics_actions"]:
+            if action["calculate_date"]:
+                today = datetime.datetime.today()
+                choices = action["choices"]
+
+                if today == self.from_scratch_dates["year_first_day"]:
+                    self.logger.info("Выгрузка за предыдущий год.")
+                    action["text_to_search"] = choices["last_year"]
+
+                elif today in self.from_scratch_dates["quarters_first_days"]:
+                    self.logger.info("Выгрузка за предыдущий квартал")
+                    action["text_to_search"] = choices[self.quarters_first_days[today]]
+
+                elif today in self.from_scratch_dates["months_first_week_days"]:
+                    self.logger.info("Выгрузка за предыдущий месяц.")
+                    action["text_to_search"] = choices["last_month"]
+
+                elif today in self.from_scratch_dates["mondays"]:
+                    self.logger.info("Выгрузка за предыдущую неделю.")
+                    action["text_to_search"] = choices["last_week"]
+
+                else:
+                    self.logger.info("Выгрузка за предыдущий день.")
+                    action["text_to_search"] = choices["yesterday"]
+                    self.from_scratch = False
+
+            await self.click(action)
+
+        seconds = 0
+
+        while not self.analytics_uploaded:
+            seconds += 1
+            print(f"\rОжидание загрузки: {seconds}...", end="", flush=True)
+
+            await asyncio.sleep(1)
+
+        print()
+        self.logger.info("[Uploader] Аналитики загружены.")
+
     async def _upload_users(self):
         """Запуск формирования отчета по юзерам."""
 
@@ -196,29 +244,10 @@ class Uploader:
 
         self.logger.info(f"[Uploader] Специалисты загружены.")
 
-    async def _upload_analytics(self):
-        """Запуск формирования отчета по аналитикам."""
-
-        self.logger.info("[Uploader] Начало загрузки Аналитик")
-        await self._setup_upload(self.analytics)
-
-        for action in self.config["analytics_actions"]:
-            await self.click(action)
-
-        seconds = 0
-
-        while not self.analytics_uploaded:
-            seconds += 1
-            print(f"\rОжидание загрузки: {seconds}...", end="", flush=True)
-
-            await asyncio.sleep(1)
-
-        print()
-        self.logger.info("[Uploader] Аналитики загружены.")
-
     def _process_files(self):
         """Обработка и загрузка в БД скачанных файлов."""
 
+        kwargs = {}
         funcs = {
             'a': self._process_analytics,
             's': self._process_specialists,
@@ -232,6 +261,10 @@ class Uploader:
                 skip_rows = 3
                 bottom_drops = [-1]
                 func = 'a'
+
+                if self.from_scratch:
+                    kwargs['from_scratch'] = True
+
             elif self.specialists in file:
                 skip_rows = 2
                 bottom_drops = []
@@ -255,22 +288,22 @@ class Uploader:
             indices_to_drop = [df.index[i] for i in bottom_drops]
             df = df.drop(indices_to_drop)
 
-            funcs[func](df)
+            funcs[func](df, **kwargs)
             print()
 
-    def _process_analytics(self, df):
+    def _process_analytics(self, df, **kwargs):
         """Обработка файла аналитик."""
 
-        self.sql_manager.process_analytics(df)
+        self.sql_manager.process_analytics(df, **kwargs)
         self.logger.info("[Uploader] Аналитики обработаны.")
 
-    def _process_specialists(self, df):
+    def _process_specialists(self, df, **kwargs):
         """Обработка файла спецов."""
 
         self.sql_manager.process_specialists(df)
         self.logger.info("[Uploader] Специалисты обработаны.")
 
-    def _process_users(self, df):
+    def _process_users(self, df, **kwargs):
         """Обработка файла юзеров."""
 
         self.bitrix_manager.process(df)
@@ -348,6 +381,64 @@ class Uploader:
 
         logging.basicConfig(**log_params)
         self.logger = logging.getLogger(__name__)
+
+    def _fill_from_scratches_dates(self):
+        """Подготовка словаря дат для определения периода перезаписи аналитик."""
+
+        current_year = datetime.datetime.today().year
+        year_first_day = datetime.datetime(current_year, 1, 1)
+
+        quarters_first_days = [
+            datetime.datetime(current_year, 4, 1),
+            datetime.datetime(current_year, 7, 1),
+            datetime.datetime(current_year, 10, 1),
+        ]
+        self.quarters_first_days = {
+            datetime.datetime(current_year, 4, 1): "quarter_one",
+            datetime.datetime(current_year, 7, 1): "quarter_two",
+            datetime.datetime(current_year, 10, 1): "quarter_three",
+        }
+
+        months_first_week_days = [
+            datetime.datetime(current_year, month, day)
+            for month in range(1, 13)
+            for day in range(1, 8)
+            if datetime.datetime(current_year, month, day) not in quarters_first_days
+        ]
+
+        mondays = []
+
+        for month in range(1, 13):
+            _, last_day = calendar.monthrange(current_year, month)
+
+            for day in range(1, last_day):
+                _date = datetime.datetime(current_year, month, day)
+                if (
+                    _date not in quarters_first_days
+                    and _date not in months_first_week_days
+                    and _date.weekday() == 0
+                ):
+                    mondays.append(_date)
+
+        mondays = [
+            datetime.datetime(current_year, month, day)
+            for month in range(1, 13)
+            for day in range(1, 8)
+            if datetime.datetime(current_year, month, day).weekday() == 0
+            and datetime.datetime(current_year, month, day) not in quarters_first_days
+            and datetime.datetime(current_year, month, day) not in months_first_week_days
+        ]
+
+        self.from_scratch_dates = {
+            "year_first_day": year_first_day, # Первый день в году перегружаем за предыдущий год
+            # В начале каждого квартала перегружаем за предыдущий квартал:
+            # в начале второго квартала за первый, третьего за второй и четвертого за третий
+            "quarters_first_days": quarters_first_days,
+            # Первые 7 дней каждого месяца перегружаем за предыдущий месяц
+            "months_first_week_days": months_first_week_days,
+            # Каждый понедельник грузим за предыдущую неделю
+            "mondays": mondays,
+        }
 
     async def setup_browser(self) -> None:
         """Инициализация браузера и создание нового контекста."""

@@ -9,6 +9,7 @@ import requests
 from typing import Any
 from pandas import NaT
 from sqlalchemy import select
+from datetime import datetime
 
 from database.db_manager import get_session
 from database.models import Analytics, Specialists
@@ -26,7 +27,7 @@ class SQLManager:
         self.logger = logger
         self.session = get_session()
 
-    def process_analytics(self, df):
+    def process_analytics(self, df, from_scratch=False):
         """Загрузка аналитик. Грузим без проверки уникальности, т.к. нет возможности её проверить."""
 
         len_df = df.shape[0]
@@ -65,6 +66,21 @@ class SQLManager:
         df = df.replace({pd.NaT: ""})
         df = df.map(lambda x: "" if x is NaT else x)
         records_to_insert = df.to_dict('records')
+
+        # Удаляем из БД все записи за период выгружаемого документа.
+        if from_scratch:
+            dates = set(record['date'] for record in records_to_insert)
+            _dates = set(datetime.strptime(_date, '%d.%m.%Y') for _date in dates)
+            date_start, date_end = min(_dates), max(_dates)
+
+            self.logger.info(
+                f"Перезапись выгрузки за период: "
+                f"{date_start.strftime('%d.%m.%Y')} - {date_end.strftime('%d.%m.%Y')}",
+            )
+
+            _filter = Analytics.date.in_(dates)
+            deleted_count = self.session.query(Analytics).filter(_filter).delete(synchronize_session=False)
+            self.logger.info(f"Удалено {deleted_count} записей.")
 
         self._bulk_upload(Analytics, records_to_insert, 'аналитикам')
 

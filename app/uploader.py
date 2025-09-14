@@ -130,6 +130,7 @@ class Uploader:
                 self.users_uploaded,
             )):
                 self.logger.info("[Uploader] Загрузки завершены, начало обработки файлов.")
+                print()
 
             else:
                 self.logger.error(

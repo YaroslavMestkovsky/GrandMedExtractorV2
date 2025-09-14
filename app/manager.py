@@ -203,6 +203,7 @@ class BitrixManager:
             self._upload_to_bitrix(record)
             print(f"\rВыгрузка в Bitrix: {num}/{amount}", end="", flush=True)
 
+        print()
         self.logger.info(f"[Manager] Загружено: {amount} записей.")
 
     def _get_records_by_reg_nums(self, reg_nums):

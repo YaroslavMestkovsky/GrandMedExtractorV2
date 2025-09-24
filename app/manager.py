@@ -9,7 +9,6 @@ import requests
 from typing import Any
 from pandas import NaT
 from sqlalchemy import select
-from datetime import datetime
 
 from database.db_manager import get_session
 from database.models import Analytics, Specialists
@@ -31,10 +30,10 @@ class SQLManager:
         """Загрузка аналитик. Грузим без проверки уникальности, т.к. нет возможности её проверить."""
 
         len_df = df.shape[0]
-        df = df[df['Категория пациента'] != 'Тестовый пациент']
-        skipped_rows = len_df - df.shape[0]
 
-        self.logger.info(f'[Manager] Пропущено {skipped_rows} тестовых пациентов')
+        df = df[df["Категория пациента"] != "Тестовый пациент"]
+        skipped_rows = len_df - df.shape[0]
+        self.logger.info(f"[Manager] Пропущено {skipped_rows} тестовых пациентов")
 
         columns_to_keep = [col for col in [col.strip() for col in df.columns] if col in ANALYTICS]
         df.columns = df.columns.str.strip()
@@ -43,21 +42,21 @@ class SQLManager:
         df = df.where(pd.notna(df), None)
 
         # Обработка поля age - извлекаем только цифры
-        if 'age' in df.columns:
-            df['age'] = df['age'].apply(
-                lambda x: int(re.search(r'\d+', str(x)).group())
-                if pd.notna(x) and re.search(r'\d+', str(x))
+        if "age" in df.columns:
+            df["age"] = df["age"].apply(
+                lambda x: int(re.search(r"\d+", str(x)).group())
+                if pd.notna(x) and re.search(r"\d+", str(x))
                 else None
             )
 
         # Обработка поля total_amount - зануляем прочерки
-        if 'total_amount' in df.columns:
-            df['total_amount'] = df['total_amount'].apply(
-                lambda x: x if x != '-' else None
+        if "total_amount" in df.columns:
+            df["total_amount"] = df["total_amount"].apply(
+                lambda x: x if x != "-" else None
             )
 
         # Обработка полей даты
-        date_columns = ['date', 'birth_date']
+        date_columns = ["date", "birth_date"]
 
         for col in date_columns:
             if col in df.columns:
@@ -65,24 +64,17 @@ class SQLManager:
 
         df = df.replace({pd.NaT: ""})
         df = df.map(lambda x: "" if x is NaT else x)
-        records_to_insert = df.to_dict('records')
 
-        # Удаляем из БД все записи за период выгружаемого документа.
         if from_scratch:
-            dates = set(record['date'] for record in records_to_insert)
-            _dates = set(datetime.strptime(_date, '%d.%m.%Y') for _date in dates)
-            date_start, date_end = min(_dates), max(_dates)
-
-            self.logger.info(
-                f"[Manager] Перезапись выгрузки за период: "
-                f"{date_start.strftime('%d.%m.%Y')} - {date_end.strftime('%d.%m.%Y')}",
-            )
-
-            _filter = Analytics.date.in_(dates)
+            # Убиваем перезаписываемые записи
+            instance_codes = list(df['instance_code'])
+            _filter = Analytics.instance_code.in_(instance_codes)
             deleted_count = self.session.query(Analytics).filter(_filter).delete(synchronize_session=False)
+
             self.logger.info(f"[Manager] Удалено {deleted_count} записей.")
 
-        self._bulk_upload(Analytics, records_to_insert, 'аналитикам')
+        records_to_insert = df.to_dict("records")
+        self._bulk_upload(Analytics, records_to_insert, "аналитикам")
 
     def process_specialists(self, df):
         """Загрузка специалистов."""
@@ -92,10 +84,10 @@ class SQLManager:
         df = df.rename(columns=SPECIALISTS)
 
         # Обработка поля patient_age - извлекаем только цифры
-        if 'patient_age' in df.columns:
-            df['patient_age'] = df['patient_age'].apply(
-                lambda x: int(re.search(r'\d+', str(x)).group())
-                if pd.notna(x) and re.search(r'\d+', str(x))
+        if "patient_age" in df.columns:
+            df["patient_age"] = df["patient_age"].apply(
+                lambda x: int(re.search(r"\d+", str(x)).group())
+                if pd.notna(x) and re.search(r"\d+", str(x))
                 else None
             )
 
@@ -106,15 +98,15 @@ class SQLManager:
         )
 
         # Обработка полей даты
-        date_columns = ['date_d0']
+        date_columns = ["date_d0"]
 
         for col in date_columns:
             if col in df.columns:
                 df[col] = df[col].apply(self._parse_date)
 
         # Фильтруем только новые записи
-        df = df.dropna(subset=['material_number'])
-        new_records = df[~df['material_number'].isin(existing_numbers)]
+        df = df.dropna(subset=["material_number"])
+        new_records = df[~df["material_number"].isin(existing_numbers)]
 
         if new_records.empty:
             self.logger.info("[Manager] Нет новых записей для загрузки")
@@ -122,9 +114,9 @@ class SQLManager:
             # Конвертируем записи в список словарей
             new_records = new_records.replace({pd.NaT: ""})
             new_records = new_records.map(lambda x: "" if x is NaT else x)
-            records_to_insert = new_records.to_dict('records')
+            records_to_insert = new_records.to_dict("records")
 
-            self._bulk_upload(Specialists, records_to_insert, 'специалистам')
+            self._bulk_upload(Specialists, records_to_insert, "специалистам")
 
     def _bulk_upload(self, model, records, entity):
         try:
@@ -137,7 +129,7 @@ class SQLManager:
                 self.session.bulk_insert_mappings(model, chunk)
                 self.session.commit()
 
-                print(f"\r[Manager] Загружено {i}/{total_rows} записей...", end="", flush=True)
+                print(f"\r[Manager] Загрузка: {i}/{total_rows} записей...", end="", flush=True)
 
             print()
             self.logger.info(f"[Manager] Успешно загружено {total_rows} новых записей по {entity}.")
@@ -181,7 +173,7 @@ class BitrixManager:
         df = df.rename(columns=BitrixDealsEnum.NAME_TO_FIELD)
         df = df.where(pd.notna(df), None)
 
-        for col in df.select_dtypes(include=['datetime64']).columns:
+        for col in df.select_dtypes(include=["datetime64"]).columns:
             df[col] = df[col].astype(str)
 
         records = df.to_dict("records")

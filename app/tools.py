@@ -31,7 +31,7 @@ def upload():
         logger.info(f'Обработка файла {file}...')
 
         if 'analytics' in file:
-            skip_rows = 3
+            skip_rows = 2
             bottom_drops = [-1]
             func = 'a'
         elif 'specialists' in file:
@@ -44,7 +44,7 @@ def upload():
             func = 'u'
         else:
             logger.error(f"Ошибка при обработке файла: {file}")
-            raise Exception
+            continue
 
         df = pd.read_csv(
             f'app/files/{file}',

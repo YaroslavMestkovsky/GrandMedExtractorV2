@@ -54,6 +54,7 @@ class Analytics(Base):
     date = Column(String, nullable=True, comment='Дата')
     birth_date = Column(String, nullable=True, comment='ДР')
     paid_destination_num = Column(String, nullable=True, comment='Номер оплачиваемого назначения')
+    instance_code = Column(String, nullable=True, comment='%Код экземпляра')
 
 
 class Specialists(Base):

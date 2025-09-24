@@ -1,10 +1,10 @@
 import asyncio
 import json
 import tempfile
+import requests
+
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
-
-import requests
 from urllib.parse import quote
 
 
@@ -33,13 +33,13 @@ class SocketService:
 
     async def inject_interceptor(self) -> None:
         """Инжектировать перехватчик WebSocket и инициализировать глобалы."""
-        from pathlib import Path as _Path
+
         with open("app/websocket_interceptor.js", "r", encoding="utf-8") as t:
             script = t.read()
 
         await self.context.add_init_script(script)
 
-        blackhole_path = str(_Path(tempfile.gettempdir()) / "qms_discard.tmp")
+        blackhole_path = str(Path(tempfile.gettempdir()) / "qms_discard.tmp")
         await self.page.add_init_script(
             f"window.__DOWNLOAD_DIR = {json.dumps(str(self.redirect_dir or ''))}; "
             f"window.__FILENAME = {json.dumps(str(self.filename or ''))}; "
@@ -66,9 +66,11 @@ class SocketService:
 
     async def extract_params_soon(self) -> None:
         """Раннее извлечение параметров после появления FileFastSave в WS."""
+
         try:
             await asyncio.sleep(0.1)
             params = await self.page.evaluate("() => window.__DOWNLOAD_PARAMS")
+
             if params and not self.download_params:
                 self.download_params = params
                 # Also get cookies while context is alive
@@ -80,10 +82,12 @@ class SocketService:
 
     async def ensure_params(self) -> None:
         """Гарантировать наличие параметров скачивания (повторная проверка)."""
+
         if self.download_params:
             return
         try:
             params = await self.page.evaluate("() => window.__DOWNLOAD_PARAMS")
+
             if params:
                 self.download_params = params
 
@@ -93,11 +97,14 @@ class SocketService:
 
     async def _get_cookies(self) -> None:
         """Считать cookies активного контекста браузера."""
+
         try:
             cookies = await self.context.cookies()
             cookie_dict: Dict[str, str] = {}
+
             for cookie in cookies:
                 cookie_dict[cookie["name"]] = cookie["value"]
+
             self.cookies = cookie_dict
 
             self.logger.debug(f"[SocketService] Cookies считаны: {list(self.cookies.keys())}")
@@ -106,6 +113,7 @@ class SocketService:
 
     async def download_via_http(self) -> bool:
         """Выполнить прямое HTTP‑скачивание, используя параметры и cookies."""
+
         if not self.download_params or not self.cookies or not self.redirect_dir or not self.filename:
             return False
 
@@ -137,12 +145,16 @@ class SocketService:
                 cookies=self.cookies,
                 verify=False,
             )
+
             if response.status_code == 200:
                 file_path = Path(self.redirect_dir) / str(self.filename)
+
                 with open(file_path, "wb") as f:
                     f.write(response.content)
+
                 self.logger.debug(f"[SocketService] Файл скачан: {file_path}")
                 return True
+
             self.logger.error(f"[SocketService] Ошибка скачивания: {response.status_code} - {response.text}")
             return False
         except Exception:
@@ -168,6 +180,7 @@ class SocketService:
         def _download_completed(payload_text: str) -> None:
             try:
                 data = json.loads(payload_text)
+
                 if isinstance(data, dict) and data.get("Action") == "useraction" and data.get("path") == "_Writefileend":
                     on_writefileend(payload_text)
             except Exception:
@@ -175,8 +188,10 @@ class SocketService:
 
         def _on_frame_sent(frame: Any):
             payload = self._extract_payload(frame)
+
             try:
                 text = str(payload)
+
                 for pattern in ws_block_patterns:
                     if pattern in text:
                         asyncio.create_task(self._interrupt_ws())
@@ -188,8 +203,10 @@ class SocketService:
         def _on_frame_received(frame: Any):
             try:
                 text = str(self._extract_payload(frame))
+
                 if "FileFastSave" in text and "mtempPrt" in text:
                     asyncio.create_task(self.extract_params_soon())
+
                 _download_completed(text)
             except Exception:
                 pass
@@ -200,6 +217,7 @@ class SocketService:
 
     async def _interrupt_ws(self) -> None:
         """Пробовать оборвать активность страницы (сбросить WS)."""
+
         try:
             await self.page.goto("about:blank")
         except Exception:
@@ -208,15 +226,18 @@ class SocketService:
     @staticmethod
     def _extract_payload(frame: Any):
         """Извлечь полезную нагрузку из сообщения WS."""
+
         for attr in ("text", "payload", "data"):
             try:
                 value = getattr(frame, attr)
+
                 if callable(value):
                     value = value()
+
                 if value is not None:
                     return value
+
             except Exception:
                 pass
+
         return frame
-
-

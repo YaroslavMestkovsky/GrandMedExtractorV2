@@ -91,7 +91,7 @@ class SocketService:
             if params:
                 self.download_params = params
 
-                self.logger.info(f"[SocketService] Параметры скачивания получены при ensure_params")
+                self.logger.info(f"[SocketService] Параметры скачивания получены")
         except Exception:
             pass
 

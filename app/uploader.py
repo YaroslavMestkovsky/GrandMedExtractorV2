@@ -340,11 +340,11 @@ class Uploader:
 
         await row.click()
         await self.page.keyboard.type(_start.strftime('%d.%m.%Y'))
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1)
         await self.page.keyboard.press("Tab")
         await asyncio.sleep(0.5)
         await self.page.keyboard.type(_end.strftime('%d.%m.%Y'))
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1)
         await self.page.keyboard.press("Tab")
 
     async def _setup_upload(self, active_download):

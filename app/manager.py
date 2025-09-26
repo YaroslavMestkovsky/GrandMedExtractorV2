@@ -22,9 +22,10 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 class SQLManager:
     """Менеджер по загрузке информации из CSV в PostgreSQL."""
 
-    def __init__(self, logger):
+    def __init__(self, logger, messages):
         self.logger = logger
         self.session = get_session()
+        self.messages = messages
 
     def process_analytics(self, df, from_scratch=False):
         """Загрузка аналитик. Грузим без проверки уникальности, т.к. нет возможности её проверить."""
@@ -132,7 +133,9 @@ class SQLManager:
                 print(f"\r[Manager] Загрузка: {i}/{total_rows} записей...", end="", flush=True)
 
             print()
-            self.logger.info(f"[Manager] Успешно загружено {total_rows} новых записей по {entity}.")
+            msg = f"[Manager] Успешно загружено {total_rows} новых записей по {entity}."
+            self.messages['messages'].append(msg)
+            self.logger.info(msg)
         except Exception as e:
             self.session.rollback()
             self.logger.error(f"[Manager] Ошибка при загрузке данных: {str(e)}")
@@ -160,8 +163,9 @@ class BitrixManager:
         "start": 0,
     }
 
-    def __init__(self, logger):
+    def __init__(self, logger, messages):
         self.logger = logger
+        self.messages = messages
         self.reg_num_field = BitrixDealsEnum.VAR_TO_FIELD[BitrixDealsEnum.REG_NUM]
 
         self._init_config()
@@ -196,7 +200,9 @@ class BitrixManager:
             print(f"\rВыгрузка в Bitrix: {num}/{amount}", end="", flush=True)
 
         print()
-        self.logger.info(f"[Manager] Загружено: {amount} записей.")
+        msg = f"[Manager] Успешно загружено {amount} новых записей по юзерам."
+        self.messages['messages'].append(msg)
+        self.logger.info(msg)
 
     def _get_records_by_reg_nums(self, reg_nums):
         """Получаем рег. номера из битрикса что бы понять, что уже загружено."""

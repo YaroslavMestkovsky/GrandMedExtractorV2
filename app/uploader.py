@@ -38,10 +38,16 @@ class Uploader:
         self.config = self._load_config(config_path)
         self._setup_logging()
 
+        # Отчет в телеграмм
+        self.report_messages = {
+            'messages': [],
+            'errors': '',
+        }
+
         # Сервисы
         self.service: Optional[SocketService] = None
-        self.sql_manager: Optional[SQLManager] = SQLManager(logger=self.logger)
-        self.bitrix_manager: Optional[BitrixManager] = BitrixManager(logger=self.logger)
+        self.sql_manager: Optional[SQLManager] = SQLManager(logger=self.logger, messages=self.report_messages)
+        self.bitrix_manager: Optional[BitrixManager] = BitrixManager(logger=self.logger, messages=self.report_messages)
 
         # Браузер
         self.playwright = None
@@ -141,8 +147,10 @@ class Uploader:
                 )
 
             self._process_files()
+            self._send_messages()
         except Exception as e:
             self.logger.error(e)
+            self.report_messages['errors'] = e.args[0]
             await self._shutdown()
         finally:
             await self._shutdown()
@@ -159,22 +167,27 @@ class Uploader:
                 choices = action["choices"]
 
                 if today == self.from_scratch_dates["year_first_day"]:
+                    self.report_messages['messages'].append('Аналитики за предыдущий год.')
                     self.logger.info("[Uploader] Выгрузка за предыдущий год.")
                     action["text_to_search"] = choices["last_year"]
 
                 elif today in self.from_scratch_dates["quarters_first_days"]:
+                    self.report_messages['messages'].append('Аналитики за предыдущий квартал.')
                     self.logger.info("[Uploader] Выгрузка за предыдущий квартал")
                     action["text_to_search"] = choices[self.quarters_first_days[today]]
 
                 elif today in self.from_scratch_dates["months_first_week_days"]:
+                    self.report_messages['messages'].append('Аналитики за предыдущий месяц.')
                     self.logger.info("[Uploader] Выгрузка за предыдущий месяц.")
                     action["text_to_search"] = choices["last_month"]
 
                 elif today in self.from_scratch_dates["mondays"]:
+                    self.report_messages['messages'].append('Аналитики за предыдущую неделю.')
                     self.logger.info("[Uploader] Выгрузка за предыдущую неделю.")
                     action["text_to_search"] = choices["last_week"]
 
                 else:
+                    self.report_messages['messages'].append('Аналитики за предыдущий день.')
                     self.logger.info("[Uploader] Выгрузка за предыдущий день.")
                     action["text_to_search"] = choices["yesterday"]
                     self.from_scratch = False
@@ -185,7 +198,7 @@ class Uploader:
 
         while not self.analytics_uploaded:
             seconds += 1
-            print(f"\rОжидание загрузки: {seconds}...", end="", flush=True)
+            print(f"\r[Uploader] Ожидание загрузки: {seconds}...", end="", flush=True)
 
             await asyncio.sleep(1)
 
@@ -205,7 +218,7 @@ class Uploader:
 
         while not self.users_uploaded:
             seconds += 1
-            print(f"\rОжидание загрузки: {seconds}...", end="", flush=True)
+            print(f"\r[Uploader] Ожидание загрузки: {seconds}...", end="", flush=True)
 
             await asyncio.sleep(1)
 
@@ -234,7 +247,7 @@ class Uploader:
 
         while not self.specialists_uploaded:
             seconds += 1
-            print(f"\rОжидание загрузки: {seconds}...", end="", flush=True)
+            print(f"\r[Uploader] Ожидание загрузки: {seconds}...", end="", flush=True)
 
             await asyncio.sleep(1)
 
@@ -291,6 +304,10 @@ class Uploader:
 
             funcs[func](df, **kwargs)
             print()
+
+    def _send_messages(self):
+        """Отправка отчета в телеграмм."""
+        ...
 
     def _process_analytics(self, df, **kwargs):
         """Обработка файла аналитик."""

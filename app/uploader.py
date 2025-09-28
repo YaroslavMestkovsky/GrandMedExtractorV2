@@ -154,9 +154,11 @@ class Uploader:
             self._process_files()
             self._send_messages()
         except Exception as e:
-            self.logger.error(e)
+            # self.logger.error(e)
             self.report_messages['errors'] = e.args[0]
             await self._shutdown()
+            raise e # todo временно рейзим чтобы понять, что за стопитерейшн
+
         finally:
             await self._shutdown()
 

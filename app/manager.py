@@ -296,3 +296,67 @@ class BitrixManager:
         self.GET_METHOD = config.get("deals", "get_method")
         self.ADD_METHOD = config.get("deals", "add_method")
         self.LIST_METHOD = config.get("deals", "list_method")
+
+
+class TelegramManager:
+    def __init__(self, logger):
+        self.logger = logger
+        self.token = None
+        self.user_id = None
+        self._init_config()
+
+    def _init_config(self):
+        try:
+            conf_path = "app/tg.conf"
+            config = configparser.ConfigParser()
+
+            if not config.read(conf_path, encoding="utf-8"):
+                self.logger.warning(f"[TelegramManager] Файл конфигурации не найден: {conf_path}")
+                return
+
+            self.token = config.get("telegram", "token", fallback=None)
+            self.user_id = config.get("telegram", "user_id", fallback=None)
+
+            if not self.token or not self.user_id:
+                self.logger.warning("[TelegramManager] В tg.conf отсутствуют token или user_id в секции [telegram]")
+
+        except Exception as e:
+            self.logger.error(f"[TelegramManager] Ошибка чтения конфигурации: {e}")
+
+    def send_messages(self, messages, errors: str = "") -> bool:
+        try:
+            if not messages and not errors:
+                self.logger.info("[TelegramManager] Нет данных для отправки")
+                return False
+
+            if not self.token or not self.user_id:
+                self.logger.warning("[TelegramManager] Не настроен token или user_id")
+
+                return False
+
+            parts = []
+            if messages:
+                parts.append("\n".join(str(m) for m in messages))
+            if errors:
+                parts.append(f"Ошибки:\n{errors}")
+
+            text = "\n\n".join(parts)
+            url = f"https://api.telegram.org/bot{self.token}/sendMessage"
+            payload = {
+                "chat_id": str(self.user_id),
+                "text": text,
+                "disable_web_page_preview": True,
+            }
+
+            resp = requests.post(url, json=payload, timeout=15)
+
+            if resp.status_code == 200 and resp.json().get("ok"):
+                self.logger.info("[TelegramManager] Сообщение отправлено")
+                return True
+
+            self.logger.error(f"[TelegramManager] Ошибка отправки: {resp.status_code} {resp.text}")
+            return False
+
+        except Exception as e:
+            self.logger.error(f"[TelegramManager] Исключение при отправке сообщения: {e}")
+            return False

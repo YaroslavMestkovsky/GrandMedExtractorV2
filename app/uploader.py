@@ -23,7 +23,11 @@ from playwright.async_api import (
     Page,
 )
 
-from manager import SQLManager, BitrixManager
+from manager import (
+    SQLManager,
+    BitrixManager,
+    TelegramManager,
+)
 from service import SocketService
 
 
@@ -48,6 +52,7 @@ class Uploader:
         self.service: Optional[SocketService] = None
         self.sql_manager: Optional[SQLManager] = SQLManager(logger=self.logger, messages=self.report_messages)
         self.bitrix_manager: Optional[BitrixManager] = BitrixManager(logger=self.logger, messages=self.report_messages)
+        self.telegram_manager: Optional[TelegramManager] = TelegramManager(logger=self.logger)
 
         # Браузер
         self.playwright = None
@@ -306,8 +311,12 @@ class Uploader:
             print()
 
     def _send_messages(self):
-        """Отправка отчета в телеграмм."""
-        ...
+        """Отправка отчета в телеграм."""
+
+        messages = self.report_messages.get('messages', [])
+        errors = self.report_messages.get('errors', '')
+
+        self.telegram_manager.send_messages(messages, errors)
 
     def _process_analytics(self, df, **kwargs):
         """Обработка файла аналитик."""

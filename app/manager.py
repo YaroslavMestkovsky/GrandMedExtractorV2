@@ -34,7 +34,10 @@ class SQLManager:
 
         df = df[df["Категория пациента"] != "Тестовый пациент"]
         skipped_rows = len_df - df.shape[0]
-        self.logger.info(f"[Manager] Пропущено {skipped_rows} тестовых пациентов")
+
+        msg = f"[Manager] Пропущено {skipped_rows} тестовых пациентов"
+        self.messages['messages'].append(msg)
+        self.logger.info(msg)
 
         columns_to_keep = [col for col in [col.strip() for col in df.columns] if col in ANALYTICS]
         df.columns = df.columns.str.strip()
@@ -73,7 +76,7 @@ class SQLManager:
             deleted_count = self.session.query(Analytics).filter(_filter).delete(synchronize_session=False)
 
             msg = f"[Manager] Удалено {deleted_count} старых записей аналитик."
-            self.messages.messages.append(msg)
+            self.messages['messages'].append(msg)
             self.logger.info(msg)
 
         records_to_insert = df.to_dict("records")
@@ -137,12 +140,15 @@ class SQLManager:
                 print(f"\r[Manager] Загрузка: {i}/{total_rows} записей...", end="", flush=True)
 
             print()
-            msg = f"[Manager] Успешно загружено {total_rows} новых записей по {entity}."
+            msg = f"[Manager] Загружено {total_rows} новых записей по {entity}."
             self.messages['messages'].append(msg)
             self.logger.info(msg)
         except Exception as e:
             self.session.rollback()
-            self.logger.error(f"[Manager] Ошибка при загрузке данных: {str(e)}")
+
+            err = f"[Manager] Ошибка при загрузке данных: {str(e)}"
+            self.messages['error'] = err
+            self.logger.error(err)
             raise
 
     @staticmethod

@@ -110,7 +110,9 @@ class SQLManager:
         new_records = df[~df["material_number"].isin(existing_numbers)]
 
         if new_records.empty:
-            self.logger.info("[Manager] Нет новых записей для загрузки")
+            msg = "[Manager] Нет новых записей по специалистам для загрузки"
+            self.messages['messages'].append(msg)
+            self.logger.info(msg)
         else:
             # Конвертируем записи в список словарей
             new_records = new_records.replace({pd.NaT: ""})

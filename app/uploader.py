@@ -170,7 +170,7 @@ class Uploader:
 
         for action in self.config["analytics_actions"]:
             if action.get("calculate_date"):
-                today = datetime.datetime.today()
+                today = datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
                 choices = action["choices"]
 
                 if today == self.from_scratch_dates["year_first_day"]:

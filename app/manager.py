@@ -72,7 +72,9 @@ class SQLManager:
             _filter = Analytics.instance_code.in_(instance_codes)
             deleted_count = self.session.query(Analytics).filter(_filter).delete(synchronize_session=False)
 
-            self.logger.info(f"[Manager] Удалено {deleted_count} записей.")
+            msg = f"[Manager] Удалено {deleted_count} старых записей аналитик."
+            self.messages.messages.append(msg)
+            self.logger.info(msg)
 
         records_to_insert = df.to_dict("records")
         self._bulk_upload(Analytics, records_to_insert, "аналитикам")

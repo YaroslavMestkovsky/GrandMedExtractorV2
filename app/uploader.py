@@ -156,6 +156,7 @@ class Uploader:
         except Exception as e:
             # self.logger.error(e)
             self.report_messages['errors'] = e.args[0]
+            self._send_messages()
             await self._shutdown()
             raise e # todo временно рейзим чтобы понять, что за стопитерейшн
 

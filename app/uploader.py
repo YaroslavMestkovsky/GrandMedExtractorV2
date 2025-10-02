@@ -120,6 +120,10 @@ class Uploader:
             self.logger.info(f"[Uploader] Переход на страницу {url}")
 
             await self._log_in()
+
+            # Даем время WebSocket'ам установиться после логина
+            await asyncio.sleep(2)
+
             await self._connect_to_socket()
             print()
 
@@ -152,15 +156,17 @@ class Uploader:
                 )
 
             self._process_files()
+        except RuntimeError:
             self._send_messages()
+            await self._shutdown()
+            pass
         except Exception as e:
-            # self.logger.error(e)
+            self.logger.error(e)
             self.report_messages['errors'] = e.args[0]
             self._send_messages()
             await self._shutdown()
-            raise e # todo временно рейзим чтобы понять, что за стопитерейшн
-
         finally:
+            self._send_messages()
             await self._shutdown()
 
     async def _upload_analytics(self):
@@ -543,6 +549,15 @@ class Uploader:
         """Подключение обработчиков к целевому WebSocket (через сервис)."""
 
         websocket_url = self.config["site"]["web-socket"]
+        
+        self.logger.info(f"[Uploader] Попытка подключения к WebSocket: {websocket_url}")
+
+        if not self.websockets_list:
+            msg = "[Uploader] Список WebSocket'ов пуст! Возможно, страница еще не загрузилась полностью."
+            self.report_messages["errors"] = msg
+            self.logger.error(msg)
+
+            raise RuntimeError("Нет доступных WebSocket соединений")
 
         def on_writefileend(_payload: str) -> None:
             if self.active_download == self.users:

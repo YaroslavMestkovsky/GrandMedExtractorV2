@@ -174,7 +174,17 @@ class SocketService:
         - На _Writefileend вызывать on_writefileend(payload)
         """
 
-        web_socket = (ws for ws in websockets_list if ws.url == websocket_url).__next__()
+        # Ищем WebSocket с нужным URL
+        web_socket = None
+        for ws in websockets_list:
+            if ws.url == websocket_url:
+                web_socket = ws
+                break
+        
+        if web_socket is None:
+            self.logger.error(f"[SocketService] WebSocket с URL {websocket_url} не найден в списке: {[ws.url for ws in websockets_list]}")
+            raise RuntimeError(f"WebSocket с URL {websocket_url} не найден")
+            
         self.logger.info(f"[SocketService] Подключение к WS: {websocket_url}")
 
         def _download_completed(payload_text: str) -> None:

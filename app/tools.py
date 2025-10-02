@@ -18,8 +18,14 @@ def upload():
     logger = logging.getLogger(__name__)
 
     files_to_process = os.listdir('app/files')
-    sql_manager = SQLManager(logger)
-    bitrix_manager = BitrixManager(logger)
+
+    report_messages = {
+        'messages': [],
+        'errors': '',
+    }
+
+    sql_manager = SQLManager(logger, report_messages)
+    bitrix_manager = BitrixManager(logger, report_messages)
 
     funcs = {
         'a': sql_manager.process_analytics,

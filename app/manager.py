@@ -45,6 +45,14 @@ class SQLManager:
         df = df.rename(columns=ANALYTICS)
         df = df.where(pd.notna(df), None)
 
+        len_df = df.shape[0]
+        df = df[~df['okmu_code'].str.startswith('Q', na=False)]
+        skipped_rows = len_df - df.shape[0]
+
+        msg = f"[Manager] Пропущено {skipped_rows} служебных услуг"
+        self.messages['messages'].append(msg)
+        self.logger.info(msg)
+
         # Обработка поля age - извлекаем только цифры
         if "age" in df.columns:
             df["age"] = df["age"].apply(

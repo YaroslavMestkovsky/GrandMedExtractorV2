@@ -156,13 +156,11 @@ class Uploader:
                 )
 
             self._process_files()
-        except RuntimeError:
-            self._send_messages()
         except Exception as e:
             self.logger.error(e)
             self.report_messages['errors'] = e.args[0]
-            self._send_messages()
         finally:
+            self._send_messages()
             await self._shutdown()
 
     async def _upload_analytics(self):

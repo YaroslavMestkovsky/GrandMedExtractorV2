@@ -218,7 +218,7 @@ class BitrixManager:
             print(f"\rВыгрузка в Bitrix: {num}/{amount}", end="", flush=True)
 
         print()
-        msg = f"[Manager] Успешно загружено {amount} новых записей по юзерам."
+        msg = f"[Manager] Загружено {amount} новых записей по юзерам."
         self.messages['messages'].append(msg)
         self.logger.info(msg)
 

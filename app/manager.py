@@ -53,6 +53,14 @@ class SQLManager:
         self.messages['messages'].append(msg)
         self.logger.info(msg)
 
+        len_df = df.shape[0]
+        df = df[df["status"].isin(["выполнено", "авторизован"])]
+        skipped_rows = len_df - df.shape[0]
+
+        msg = f"[Manager] Пропущено {skipped_rows} лишних статусов"
+        self.messages['messages'].append(msg)
+        self.logger.info(msg)
+
         # Обработка поля age - извлекаем только цифры
         if "age" in df.columns:
             df["age"] = df["age"].apply(

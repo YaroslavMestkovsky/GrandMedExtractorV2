@@ -217,8 +217,10 @@ class Uploader:
 
         print()
 
+        # Костыль. Подгружаем второй файл, сбрасывая флаги.
         if self.force_upload_today:
             await self._setup_upload(self.analytics)
+            self.analytics_uploaded = False
             self.from_scratch = False
 
             for action in self.config["analytics_actions"]:

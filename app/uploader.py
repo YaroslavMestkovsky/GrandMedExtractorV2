@@ -77,6 +77,7 @@ class Uploader:
         self.analytics_uploaded = False
         self.specialists_uploaded = False
         self.users_uploaded = False
+        self.force_upload_today = False
         self.from_scratch = True
 
         # Текущее активное скачивание
@@ -189,6 +190,10 @@ class Uploader:
                     self.logger.info("[Uploader] Выгрузка за предыдущий месяц.")
                     action["text_to_search"] = choices["last_month"]
 
+                    # Тут выгружается за предыдущий месяц - не в смысле текущая дата -30, а с 1 по 30 пред. месяца.
+                    # А значит, сегодняшний день надо загрузить отдельно.
+                    self.force_upload_today = True
+
                 elif today in self.from_scratch_dates["mondays"]:
                     self.report_messages['messages'].append('Аналитики за предыдущую неделю.')
                     self.logger.info("[Uploader] Выгрузка за предыдущую неделю.")
@@ -211,6 +216,20 @@ class Uploader:
             await asyncio.sleep(1)
 
         print()
+
+        if self.force_upload_today:
+            await self._setup_upload(self.analytics)
+            self.from_scratch = False
+
+            for action in self.config["analytics_actions"]:
+                await self.click(action)
+
+            while not self.analytics_uploaded:
+                seconds += 1
+                print(f"\r[Uploader] Ожидание загрузки: {seconds}...", end="", flush=True)
+
+                await asyncio.sleep(1)
+
         self.logger.info("[Uploader] Аналитики загружены.")
 
     async def _upload_users(self):

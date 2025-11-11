@@ -45,7 +45,14 @@ class Uploader:
         # Отчет в телеграмм
         self.report_messages = {
             'messages': [],
-            'errors': '',
+            'errors': [],
+            'statistics': {
+                'analytics': {'uploaded': False, 'processed': False, 'records': 0},
+                'specialists': {'uploaded': False, 'processed': False, 'records': 0},
+                'users': {'uploaded': False, 'processed': False, 'records': 0},
+            },
+            'start_time': None,
+            'end_time': None,
         }
 
         # Сервисы
@@ -103,7 +110,12 @@ class Uploader:
         self._fill_from_scratches_dates()
 
     async def run(self):
-        """Агла!"""
+        """Основной метод запуска процесса выгрузки отчётов."""
+        
+        self.report_messages['start_time'] = datetime.datetime.now()
+        self.logger.info("=" * 60)
+        self.logger.info("[Uploader] Запуск процесса выгрузки отчётов")
+        self.logger.info("=" * 60)
 
         try:
             await self.setup_browser()
@@ -111,14 +123,17 @@ class Uploader:
             # Автоматически включаем перенаправление загрузок в локальную папку и инжектим перехватчик
             try:
                 self.redirect_dir.mkdir(parents=True, exist_ok=True)
+                self.logger.debug(f"[Uploader] Создана директория для загрузок: {self.redirect_dir}")
                 await self._inject_web_socket()
             except Exception as e:
-                self.logger.warning(f"[Uploader] Не удалось включить перенаправление загрузок: {e}")
+                error_msg = f"Не удалось настроить перенаправление загрузок: {str(e)}"
+                self.logger.warning(f"[Uploader] {error_msg}")
+                self._add_error(error_msg)
 
             url = self.config["site"]["url"]
-
+            self.logger.info(f"[Uploader] Переход на страницу: {url}")
             await self.page.goto(url)
-            self.logger.info(f"[Uploader] Переход на страницу {url}")
+            self.logger.debug("[Uploader] Страница загружена")
 
             await self._log_in()
 
@@ -145,21 +160,29 @@ class Uploader:
                 self.specialists_uploaded,
                 self.users_uploaded,
             )):
-                self.logger.info("[Uploader] Загрузки завершены, начало обработки файлов.")
+                self.logger.info("[Uploader] Все файлы успешно загружены, начало обработки")
                 print()
-
             else:
-                self.logger.error(
-                    f"[Uploader] Проблемы с загрузкой файлов:"
-                    f"\nАналитики: {self.analytics_uploaded}"
-                    f"\nСпециалисты {self.specialists_uploaded}"
-                    f"\nПациенты {self.users_uploaded}"
+                error_details = (
+                    f"Не все файлы загружены:\n"
+                    f"  - Аналитики: {'✓' if self.analytics_uploaded else '✗'}\n"
+                    f"  - Специалисты: {'✓' if self.specialists_uploaded else '✗'}\n"
+                    f"  - Пациенты: {'✓' if self.users_uploaded else '✗'}"
                 )
+                self.logger.error(f"[Uploader] {error_details}")
+                self._add_error(error_details)
 
             self._process_files()
+            
+            self.report_messages['end_time'] = datetime.datetime.now()
+            duration = (self.report_messages['end_time'] - self.report_messages['start_time']).total_seconds()
+            self.logger.info(f"[Uploader] Процесс завершён успешно. Время выполнения: {duration:.1f} сек")
+            
         except Exception as e:
-            self.logger.error(e)
-            self.report_messages['errors'] = e.args[0]
+            error_msg = str(e) if e.args else "Неизвестная ошибка"
+            self.logger.error(f"[Uploader] Критическая ошибка: {error_msg}", exc_info=True)
+            self._add_error(f"Критическая ошибка: {error_msg}")
+            self.report_messages['end_time'] = datetime.datetime.now()
         finally:
             self._send_messages()
             await self._shutdown()
@@ -167,7 +190,7 @@ class Uploader:
     async def _upload_analytics(self):
         """Запуск формирования отчета по аналитикам."""
 
-        self.logger.info("[Uploader] Начало загрузки Аналитик")
+        self.logger.info("[Uploader] Начало загрузки аналитик")
         await self._setup_upload(self.analytics)
 
         for action in self.config["analytics_actions"]:
@@ -176,49 +199,64 @@ class Uploader:
                 choices = action["choices"]
 
                 if today == self.from_scratch_dates["year_first_day"]:
-                    self.report_messages['messages'].append('Аналитики за предыдущий год.')
-                    self.logger.info("[Uploader] Выгрузка за предыдущий год.")
+                    period_msg = "Аналитики за предыдущий год"
+                    self._add_message(period_msg)
+                    self.logger.info(f"[Uploader] Период выгрузки: {period_msg}")
                     action["text_to_search"] = choices["last_year"]
 
                 elif today in self.from_scratch_dates["quarters_first_days"]:
-                    self.report_messages['messages'].append('Аналитики за предыдущий квартал.')
-                    self.logger.info("[Uploader] Выгрузка за предыдущий квартал")
+                    period_msg = "Аналитики за предыдущий квартал"
+                    self._add_message(period_msg)
+                    self.logger.info(f"[Uploader] Период выгрузки: {period_msg}")
                     action["text_to_search"] = choices[self.quarters_first_days[today]]
 
                 elif today in self.from_scratch_dates["months_first_week_days"]:
-                    self.report_messages['messages'].append('Аналитики за предыдущий месяц.')
-                    self.logger.info("[Uploader] Выгрузка за предыдущий месяц.")
+                    period_msg = "Аналитики за предыдущий месяц"
+                    self._add_message(period_msg)
+                    self.logger.info(f"[Uploader] Период выгрузки: {period_msg}")
                     action["text_to_search"] = choices["last_month"]
 
                     # Тут выгружается за предыдущий месяц - не в смысле текущая дата -30, а с 1 по 30 пред. месяца.
                     # А значит, сегодняшний день надо загрузить отдельно.
                     self.force_upload_today = True
+                    self.logger.debug("[Uploader] Будет выполнена дополнительная загрузка за сегодняшний день")
 
                 elif today in self.from_scratch_dates["mondays"]:
-                    self.report_messages['messages'].append('Аналитики за предыдущую неделю.')
-                    self.logger.info("[Uploader] Выгрузка за предыдущую неделю.")
+                    period_msg = "Аналитики за предыдущую неделю"
+                    self._add_message(period_msg)
+                    self.logger.info(f"[Uploader] Период выгрузки: {period_msg}")
                     action["text_to_search"] = choices["last_week"]
 
                 else:
-                    self.report_messages['messages'].append('Аналитики за предыдущий день.')
-                    self.logger.info("[Uploader] Выгрузка за предыдущий день.")
+                    period_msg = "Аналитики за предыдущий день"
+                    self._add_message(period_msg)
+                    self.logger.info(f"[Uploader] Период выгрузки: {period_msg}")
                     action["text_to_search"] = choices["yesterday"]
                     self.from_scratch = False
 
             await self.click(action)
 
         seconds = 0
+        max_wait_time = 3600 * 4  # Максимальное время ожидания: 4 часа
 
-        while not self.analytics_uploaded:
+        while not self.analytics_uploaded and seconds < max_wait_time:
             seconds += 1
-            print(f"\r[Uploader] Ожидание загрузки: {seconds}...", end="", flush=True)
-
+            print(f"\r[Uploader] Ожидание загрузки аналитик: {seconds} сек...", end="", flush=True)
             await asyncio.sleep(1)
 
         print()
 
-        # Костыль. Подгружаем второй файл, сбрасывая флаги.
+        if not self.analytics_uploaded:
+            error_msg = f"Таймаут загрузки аналитик ({max_wait_time} сек)"
+            self.logger.error(f"[Uploader] {error_msg}")
+            self._add_error(error_msg)
+        else:
+            self.report_messages['statistics']['analytics']['uploaded'] = True
+            self.logger.info("[Uploader] Аналитики успешно загружены")
+
+        # Дополнительная загрузка за сегодняшний день при необходимости
         if self.force_upload_today:
+            self.logger.info("[Uploader] Начало дополнительной загрузки аналитик за сегодняшний день")
             await self._setup_upload(self.analytics)
             self.analytics_uploaded = False
             self.from_scratch = False
@@ -226,41 +264,56 @@ class Uploader:
             for action in self.config["analytics_actions"]:
                 await self.click(action)
 
-            while not self.analytics_uploaded:
-                seconds += 1
-                print(f"\r[Uploader] Ожидание загрузки: {seconds}...", end="", flush=True)
+            seconds = 0
 
+            while not self.analytics_uploaded and seconds < max_wait_time:
+                seconds += 1
+                print(f"\r[Uploader] Ожидание дополнительной загрузки: {seconds} сек...", end="", flush=True)
                 await asyncio.sleep(1)
 
-        self.logger.info("[Uploader] Аналитики загружены.")
+            print()
+            
+            if self.analytics_uploaded:
+                self.logger.info("[Uploader] Дополнительная загрузка аналитик завершена")
+            else:
+                error_msg = f"Таймаут дополнительной загрузки аналитик ({max_wait_time} сек)"
+                self.logger.error(f"[Uploader] {error_msg}")
+                self._add_error(error_msg)
 
     async def _upload_users(self):
-        """Запуск формирования отчета по юзерам."""
+        """Запуск формирования отчета по пользователям."""
 
-        self.logger.info("[Uploader] Начало загрузки Пациентов")
+        self.logger.info("[Uploader] Начало загрузки пациентов")
         await self._setup_upload(self.users)
 
         for action in self.config["users_actions"]:
             await self.click(action)
 
         seconds = 0
+        max_wait_time = 3600
 
-        while not self.users_uploaded:
+        while not self.users_uploaded and seconds < max_wait_time:
             seconds += 1
-            print(f"\r[Uploader] Ожидание загрузки: {seconds}...", end="", flush=True)
-
+            print(f"\r[Uploader] Ожидание загрузки пациентов: {seconds} сек...", end="", flush=True)
             await asyncio.sleep(1)
+
+        print()
+
+        if not self.users_uploaded:
+            error_msg = f"Таймаут загрузки пациентов ({max_wait_time} сек)"
+            self.logger.error(f"[Uploader] {error_msg}")
+            self._add_error(error_msg)
+        else:
+            self.report_messages['statistics']['users']['uploaded'] = True
+            self.logger.info("[Uploader] Пациенты успешно загружены")
 
         for action in self.config["users_after_upload_actions"]:
             await self.click(action)
 
-        print()
-        self.logger.info("[Uploader] Пациенты за предыдущий день загружены.")
-
     async def _upload_specialists(self):
         """Запуск формирования отчета по специалистам."""
 
-        self.logger.info("[Uploader] Начало загрузки Специалистов")
+        self.logger.info("[Uploader] Начало загрузки специалистов")
         await self._setup_upload(self.specialists)
 
         for action in self.config["specialists_actions"]:
@@ -273,23 +326,31 @@ class Uploader:
                 await self.click(action)
 
         seconds = 0
+        max_wait_time = 3600
 
-        while not self.specialists_uploaded:
+        while not self.specialists_uploaded and seconds < max_wait_time:
             seconds += 1
-            print(f"\r[Uploader] Ожидание загрузки: {seconds}...", end="", flush=True)
-
+            print(f"\r[Uploader] Ожидание загрузки специалистов: {seconds} сек...", end="", flush=True)
             await asyncio.sleep(1)
 
         print()
 
+        if not self.specialists_uploaded:
+            error_msg = f"Таймаут загрузки специалистов ({max_wait_time} сек)"
+            self.logger.error(f"[Uploader] {error_msg}")
+            self._add_error(error_msg)
+        else:
+            self.report_messages['statistics']['specialists']['uploaded'] = True
+            self.logger.info("[Uploader] Специалисты успешно загружены")
+
         for action in self.config["specialists_after_upload_actions"]:
             await self.click(action)
-
-        self.logger.info(f"[Uploader] Специалисты загружены.")
 
     def _process_files(self):
         """Обработка и загрузка в БД скачанных файлов."""
 
+        self.logger.info(f"[Uploader] Начало обработки {len(self.files_to_process)} файлов")
+        
         kwargs = {}
         funcs = {
             'a': self._process_analytics,
@@ -299,6 +360,14 @@ class Uploader:
 
         for file in self.files_to_process:
             path = self.redirect_dir.joinpath(file)
+            
+            if not path.exists():
+                error_msg = f"Файл не найден: {file}"
+                self.logger.error(f"[Uploader] {error_msg}")
+                self._add_error(error_msg)
+                continue
+            
+            self.logger.info(f"[Uploader] Обработка файла: {file}")
 
             if self.analytics in file:
                 skip_rows = 3
@@ -317,85 +386,116 @@ class Uploader:
                 bottom_drops = [-1]
                 func = 'u'
             else:
-                self.logger.error(f"[Uploader] Ошибка при обработке файла: {file}")
-                raise Exception
+                error_msg = f"Неизвестный тип файла: {file}"
+                self.logger.error(f"[Uploader] {error_msg}")
+                self._add_error(error_msg)
+                continue
 
-            df = pd.read_csv(
-                path,
-                skiprows=skip_rows,
-                encoding='cp1251',
-                delimiter=';',
-                low_memory=False,
-            )
+            try:
+                df = pd.read_csv(
+                    path,
+                    skiprows=skip_rows,
+                    encoding='cp1251',
+                    delimiter=';',
+                    low_memory=False,
+                )
+                self.logger.debug(f"[Uploader] Файл прочитан: {len(df)} строк")
 
-            indices_to_drop = [df.index[i] for i in bottom_drops]
-            df = df.drop(indices_to_drop)
+                indices_to_drop = [df.index[i] for i in bottom_drops]
+                if indices_to_drop:
+                    df = df.drop(indices_to_drop)
+                    self.logger.debug(f"[Uploader] Удалено {len(indices_to_drop)} строк снизу")
 
-            funcs[func](df, **kwargs)
-            print()
+                funcs[func](df, **kwargs)
+                print()
+            except Exception as e:
+                error_msg = f"Ошибка при обработке файла {file}: {str(e)}"
+                self.logger.error(f"[Uploader] {error_msg}", exc_info=True)
+                self._add_error(error_msg)
 
     def _send_messages(self):
         """Отправка отчета в телеграм."""
 
         messages = self.report_messages.get('messages', [])
-        errors = self.report_messages.get('errors', '')
+        errors = self.report_messages.get('errors', [])
 
-        self.telegram_manager.send_messages(messages, errors)
+        self.logger.info("[Uploader] Подготовка отчёта для Telegram")
+        self.telegram_manager.send_messages(messages, errors, self.report_messages.get('statistics', {}))
 
     def _process_analytics(self, df, **kwargs):
         """Обработка файла аналитик."""
 
+        self.logger.info(f"[Uploader] Начало обработки аналитик: {len(df)} записей")
         self.sql_manager.process_analytics(df, **kwargs)
-        self.logger.info("[Uploader] Аналитики обработаны.")
+        self.report_messages['statistics']['analytics']['processed'] = True
+        self.logger.info("[Uploader] Аналитики успешно обработаны")
 
     def _process_specialists(self, df, **kwargs):
-        """Обработка файла спецов."""
+        """Обработка файла специалистов."""
 
+        self.logger.info(f"[Uploader] Начало обработки специалистов: {len(df)} записей")
         self.sql_manager.process_specialists(df)
-        self.logger.info("[Uploader] Специалисты обработаны.")
+        self.report_messages['statistics']['specialists']['processed'] = True
+        self.logger.info("[Uploader] Специалисты успешно обработаны")
 
     def _process_users(self, df, **kwargs):
-        """Обработка файла юзеров."""
+        """Обработка файла пользователей."""
 
+        self.logger.info(f"[Uploader] Начало обработки пациентов: {len(df)} записей")
         self.bitrix_manager.process(df)
-        self.logger.info("[Uploader] Пользователи обработаны.")
+        self.report_messages['statistics']['users']['processed'] = True
+        self.logger.info("[Uploader] Пациенты успешно обработаны")
 
     async def click(self, action):
-        self.logger.info(f"[Uploader] Действие: {action['elem']}")
+        action_desc = action.get('elem', action.get('description', 'Неизвестное действие'))
+        self.logger.debug(f"[Uploader] Выполнение действия: {action_desc}")
 
-        if text_to_search := action.get("text_to_search"):
-            inner_text = await self.page.locator(action["id"]).inner_text()
+        try:
+            if text_to_search := action.get("text_to_search"):
+                inner_text = await self.page.locator(action["id"]).inner_text()
 
-            if not text_to_search in inner_text:
-                self.logger.error(f"[Uploader] Не найден элемент {text_to_search}")
-                raise Exception
+                if text_to_search not in inner_text:
+                    error_msg = f"Элемент '{text_to_search}' не найден на странице"
+                    self.logger.error(f"[Uploader] {error_msg}")
+                    raise Exception(error_msg)
 
-            locator = self.page.locator(f"{action['root_node']} >> text={text_to_search}").first
-            await locator.click(timeout=action.get("timeout", self.base_timeout))
-        elif key := action.get("key"):
-            await self.page.keyboard.press(key)
-        else:
-            await self.page.click(action["id"], timeout=action.get("timeout", self.base_timeout))
+                locator = self.page.locator(f"{action['root_node']} >> text={text_to_search}").first
+                await locator.click(timeout=action.get("timeout", self.base_timeout))
+            elif key := action.get("key"):
+                await self.page.keyboard.press(key)
+            else:
+                await self.page.click(action["id"], timeout=action.get("timeout", self.base_timeout))
 
-        if sleep := action.get("sleep"):
-            await asyncio.sleep(sleep)
+            if sleep := action.get("sleep"):
+                await asyncio.sleep(sleep)
 
-        self.logger.info('[Uploader]\t- готово.')
+            self.logger.debug(f"[Uploader] Действие '{action_desc}' выполнено успешно")
+        except Exception as e:
+            error_msg = f"Ошибка при выполнении действия '{action_desc}': {str(e)}"
+            self.logger.error(f"[Uploader] {error_msg}")
+            raise
 
     async def fill_dates(self, action, _start, _end):
-        self.logger.info(f"[Uploader] Ввод: {action['elem']}")
+        action_desc = action.get('elem', 'Ввод дат')
+        self.logger.debug(f"[Uploader] {action_desc}: {_start.strftime('%d.%m.%Y')} - {_end.strftime('%d.%m.%Y')}")
 
-        container = self.page.locator(action["id"])
-        row = container.locator(action["row_text"])
+        try:
+            container = self.page.locator(action["id"])
+            row = container.locator(action["row_text"])
 
-        await row.click()
-        await self.page.keyboard.type(_start.strftime('%d.%m.%Y'))
-        await asyncio.sleep(1)
-        await self.page.keyboard.press("Tab")
-        await asyncio.sleep(0.5)
-        await self.page.keyboard.type(_end.strftime('%d.%m.%Y'))
-        await asyncio.sleep(1)
-        await self.page.keyboard.press("Tab")
+            await row.click()
+            await self.page.keyboard.type(_start.strftime('%d.%m.%Y'))
+            await asyncio.sleep(1)
+            await self.page.keyboard.press("Tab")
+            await asyncio.sleep(0.5)
+            await self.page.keyboard.type(_end.strftime('%d.%m.%Y'))
+            await asyncio.sleep(1)
+            await self.page.keyboard.press("Tab")
+            self.logger.debug(f"[Uploader] Даты введены успешно")
+        except Exception as e:
+            error_msg = f"Ошибка при вводе дат: {str(e)}"
+            self.logger.error(f"[Uploader] {error_msg}")
+            raise
 
     async def _setup_upload(self, active_download):
         now = datetime.datetime.now().strftime('d%d_m%m_y%Y')
@@ -525,54 +625,60 @@ class Uploader:
         self.logger.info("[Uploader] Браузер успешно инициализирован")
 
     async def _log_in(self):
-        self.logger.info("[Uploader] Аутентификация...")
+        self.logger.info("[Uploader] Начало процесса аутентификации")
 
         for action in self.config["log_in_actions"]:
             action_type = action["type"]
             selector = action.get("selector", None)
             description = action.get("description", "")
-            reset_wss = action.get("reset_wss", "")
+            reset_wss = action.get("reset_wss", False)
 
-            self.logger.debug(f"[Uploader] Выполнение действия: {description}")
+            self.logger.debug(f"[Uploader] Шаг аутентификации: {description}")
 
             if reset_wss:
                 # Скидываем все веб-сокеты без авторизации
                 self.websockets_list = []
+                self.logger.debug("[Uploader] Список WebSocket соединений сброшен")
 
-            if action_type == "click" and selector:
-                await self.page.click(selector)
-                self.logger.debug(f"[Uploader] \tВыполнено нажатие на элемент")
-            elif action_type == "input" and selector:
-                value = action["value"]
+            try:
+                if action_type == "click" and selector:
+                    await self.page.click(selector)
+                    self.logger.debug(f"[Uploader] Нажатие выполнено: {description}")
+                elif action_type == "input" and selector:
+                    value = action["value"]
 
-                # Подстановка значений из конфигурации
-                if isinstance(value, str) and value.startswith("${"):
-                    config_path = value[2:-1].split(".")
-                    value = self.config
+                    # Подстановка значений из конфигурации
+                    if isinstance(value, str) and value.startswith("${"):
+                        config_path = value[2:-1].split(".")
+                        value = self.config
 
-                    for key in config_path:
-                        value = value[key]
+                        for key in config_path:
+                            value = value[key]
 
-                await self.page.click(selector)
-                await self.page.type(selector, value)
+                    await self.page.click(selector)
+                    await self.page.type(selector, value)
+                    self.logger.debug(f"[Uploader] Текст введён: {description}")
+            except Exception as e:
+                error_msg = f"Ошибка при выполнении шага '{description}': {str(e)}"
+                self.logger.error(f"[Uploader] {error_msg}")
+                raise
 
-                self.logger.debug(f"[Uploader] \tВведен текст {value} в элемент")
-
-        self.logger.info("\tГотово.")
+        self.logger.info("[Uploader] Аутентификация завершена успешно")
 
     async def _connect_to_socket(self):
         """Подключение обработчиков к целевому WebSocket (через сервис)."""
 
         websocket_url = self.config["site"]["web-socket"]
         
-        self.logger.info(f"[Uploader] Попытка подключения к WebSocket: {websocket_url}")
+        self.logger.info(f"[Uploader] Подключение к WebSocket: {websocket_url}")
 
         if not self.websockets_list:
-            msg = "[Uploader] Список WebSocket'ов пуст! Возможно, страница еще не загрузилась полностью."
-            self.report_messages["errors"] = msg
-            self.logger.error(msg)
-
-            raise RuntimeError("Нет доступных WebSocket соединений")
+            error_msg = "Список WebSocket соединений пуст. Возможно, страница ещё не загрузилась полностью."
+            self.logger.error(f"[Uploader] {error_msg}")
+            self._add_error(error_msg)
+            raise RuntimeError(error_msg)
+        
+        self.logger.debug(f"[Uploader] Найдено {len(self.websockets_list)} WebSocket соединений")
 
         def on_writefileend(_payload: str) -> None:
             if self.active_download == self.users:
@@ -584,13 +690,19 @@ class Uploader:
 
             asyncio.create_task(self._process_download_via_http())
 
-        await self.service.connect_to_socket(
-            websocket_url=websocket_url,
-            websockets_list=self.websockets_list,
-            ws_block_patterns=self.ws_block_patterns,
-            on_writefileend=on_writefileend,
-        )
-        self.logger.info("[Uploader] WebSocket успешно подключен")
+        try:
+            await self.service.connect_to_socket(
+                websocket_url=websocket_url,
+                websockets_list=self.websockets_list,
+                ws_block_patterns=self.ws_block_patterns,
+                on_writefileend=on_writefileend,
+            )
+            self.logger.info("[Uploader] WebSocket успешно подключен и настроен")
+        except Exception as e:
+            error_msg = f"Ошибка при подключении к WebSocket: {str(e)}"
+            self.logger.error(f"[Uploader] {error_msg}")
+            self._add_error(error_msg)
+            raise
 
     async def _interrupt_ws(self) -> None:
         """Грубое прерывание действий страницы для остановки скачивания и открытия файла.
@@ -660,13 +772,22 @@ class Uploader:
         """Скачать файл через HTTP-запрос используя параметры из WebSocket."""
 
         if not self.service:
+            self.logger.error("[Uploader] Сервис скачивания не инициализирован")
             return False
 
+        self.logger.debug(f"[Uploader] Начало HTTP-скачивания файла: {self.filename}")
+        
         self.service.redirect_dir = self.redirect_dir
         self.service.filename = self.filename
         self.service.download_params = self.download_params
         self.service.cookies = self.cookies
+        
         ok = await self.service.download_via_http()
+
+        if ok:
+            self.logger.debug(f"[Uploader] HTTP-скачивание завершено успешно: {self.filename}")
+        else:
+            self.logger.warning(f"[Uploader] HTTP-скачивание не удалось: {self.filename}")
 
         return ok
 
@@ -674,6 +795,8 @@ class Uploader:
         """Обработка скачивания через HTTP после получения параметров из WebSocket."""
 
         try:
+            self.logger.debug(f"[Uploader] Обработка HTTP-скачивания для файла: {self.filename}")
+            
             # Небольшая задержка, чтобы параметры успели извлечься
             await asyncio.sleep(0.5)
 
@@ -681,6 +804,9 @@ class Uploader:
             self.download_params = None
             self.service.download_params = None
             await self._get_download_params()
+
+            if not self.download_params:
+                self.logger.warning(f"[Uploader] Параметры скачивания не получены для файла: {self.filename}")
 
             # Если cookies еще не получены, пытаемся их получить
             if not self.cookies:
@@ -690,35 +816,62 @@ class Uploader:
             success = await self._download_file_via_http()
 
             if success:
-                self.logger.info(f"[Uploader] Файл '{self.filename}' успешно скачан через HTTP.")
+                self.logger.info(f"[Uploader] Файл '{self.filename}' успешно скачан через HTTP")
             else:
-                self.logger.error(f"[Uploader] Не удалось скачать файл '{self.filename}' через HTTP.")
+                error_msg = f"Не удалось скачать файл '{self.filename}' через HTTP"
+                self.logger.error(f"[Uploader] {error_msg}")
+                self._add_error(error_msg)
 
         except Exception as e:
-            self.logger.error(f"[Uploader] Ошибка при обработке HTTP-скачивания: {e}")
+            error_msg = f"Ошибка при обработке HTTP-скачивания файла '{self.filename}': {str(e)}"
+            self.logger.error(f"[Uploader] {error_msg}", exc_info=True)
+            self._add_error(error_msg)
 
     async def _shutdown(self) -> None:
         """Корректное завершение Playwright и браузера."""
+        
+        self.logger.info("[Uploader] Начало завершения работы")
+        
         try:
             if self.page is not None:
                 await self.page.close()
-        except Exception:
-            pass
+                self.logger.debug("[Uploader] Страница закрыта")
+        except Exception as e:
+            self.logger.warning(f"[Uploader] Ошибка при закрытии страницы: {str(e)}")
+        
         try:
             if self.context is not None:
                 await self.context.close()
-        except Exception:
-            pass
+                self.logger.debug("[Uploader] Контекст браузера закрыт")
+        except Exception as e:
+            self.logger.warning(f"[Uploader] Ошибка при закрытии контекста: {str(e)}")
+        
         try:
             if self.browser is not None:
                 await self.browser.close()
-        except Exception:
-            pass
+                self.logger.debug("[Uploader] Браузер закрыт")
+        except Exception as e:
+            self.logger.warning(f"[Uploader] Ошибка при закрытии браузера: {str(e)}")
+        
         try:
             if self.playwright is not None:
                 await self.playwright.stop()
-        except Exception:
-            pass
+                self.logger.debug("[Uploader] Playwright остановлен")
+        except Exception as e:
+            self.logger.warning(f"[Uploader] Ошибка при остановке Playwright: {str(e)}")
+        
+        self.logger.info("[Uploader] Завершение работы выполнено")
+
+    def _add_message(self, message: str) -> None:
+        """Добавить сообщение в отчёт."""
+        self.report_messages['messages'].append(message)
+
+    def _add_error(self, error: str) -> None:
+        """Добавить ошибку в отчёт."""
+        if isinstance(self.report_messages.get('errors'), list):
+            self.report_messages['errors'].append(error)
+        else:
+            self.report_messages['errors'] = [error]
 
     @staticmethod
     def _load_config(config_path: str) -> Dict[str, Any]:

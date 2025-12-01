@@ -12,7 +12,7 @@ from sqlalchemy import select
 
 from database.db_manager import get_session
 from database.models import Analytics, Specialists
-from enums import ANALYTICS, SPECIALISTS, BitrixDealsEnum
+from enums import ANALYTICS, ANALYTICS_TO_BITRIX, SPECIALISTS, BitrixDealsEnum
 
 
 # Отключаем все предупреждения urllib3
@@ -96,7 +96,7 @@ class SQLManager:
 
         df = df.replace({pd.NaT: ""})
         df = df.map(lambda x: "" if x is NaT else x)
-
+        return df #todo убрать после тестов
         final_count = df.shape[0]
         self.logger.info(f"[SQLManager] После фильтрации осталось {final_count} записей из {initial_count}")
 
@@ -114,6 +114,8 @@ class SQLManager:
         records_to_insert = df.to_dict("records")
         self.messages['statistics']['analytics']['records'] = len(records_to_insert)
         self._bulk_upload(Analytics, records_to_insert, "аналитикам")
+
+        return df
 
     def process_specialists(self, df):
         """Загрузка специалистов."""
@@ -233,6 +235,7 @@ class BitrixManager:
         self.logger = logger
         self.messages = messages
         self.reg_num_field = BitrixDealsEnum.VAR_TO_FIELD[BitrixDealsEnum.REG_NUM]
+        self.specialist_execution = BitrixDealsEnum.VAR_TO_FIELD[BitrixDealsEnum.SPECIALIST_EXECUTION]
 
         self._init_config()
 
@@ -270,7 +273,7 @@ class BitrixManager:
             self.logger.info(f"[BitrixManager] {msg}")
 
         for record in records_to_upload:
-            record["CATEGORY_ID"] = self.CATEGORY_ID
+            record["PATIENTS_CATEGORY_ID"] = self.PATIENTS_CATEGORY_ID
             record[BitrixDealsEnum.CREATION] = record[BitrixDealsEnum.CREATION]
             record[BitrixDealsEnum.VAR_TO_FIELD[BitrixDealsEnum.BIRTHDAY]] = record[BitrixDealsEnum.VAR_TO_FIELD[BitrixDealsEnum.BIRTHDAY]]
 
@@ -278,8 +281,9 @@ class BitrixManager:
 
         if amount > 0:
             self.logger.info(f"[BitrixManager] Начало загрузки {amount} новых записей в Bitrix")
+
             for num, record in enumerate(records_to_upload, 1):
-                self._upload_to_bitrix(record)
+                self._upload_to_bitrix(record, self.WEBHOOK_URL_PROD)
                 print(f"\r[BitrixManager] Выгрузка в Bitrix: {num}/{amount}", end="", flush=True)
 
             print()
@@ -303,6 +307,96 @@ class BitrixManager:
         else:
             self.messages['errors'] = [error]
 
+    def process_analytics(self, df):
+        df = (
+            df
+            [df["admission_type"] == "КОСМЕТОЛОГИЯ"]
+            [df["department_execution"] == "ХГМ КОСМ АМБ"]
+            [ANALYTICS_TO_BITRIX.values()]
+        )
+        df["total_amount"] = df["total_amount"].astype(float)
+        df = df.groupby(
+            [
+                'registration_number',
+                'full_name',
+                'appointment_date',
+                'department_execution',
+                'specialist_execution',
+            ],
+            as_index=False,
+        )["total_amount"].sum() #todo
+
+        records = df.to_dict('records')
+
+        for record in records:
+            # Находим контакт юзера по его рег. номеру.
+            contact = self._get_contact_by_reg_number(record['registration_number'])
+
+            if contact:
+                # Создаем сделку
+                deal = requests.post(
+                    url='https://crm.grandmed.ru/rest/27036/pnkrzq23s3h1r71c/crm.deal.add',
+                    headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
+                    data=json.dumps({
+                        'CATEGORY_ID': '65',
+                        'UF_CRM_673DEA05D361C': record['appointment_date'],
+                        'UF_CRM_1641810471884': record['specialist_execution'],
+                        'STAGE_ID': 'C44:WON',
+                        'ASSIGNED_BY_ID': '19240',
+                        'TYPE_ID': 'Интеграция с qMS',
+                    }),
+                    verify=False,
+                ).json()
+
+                # Добавляем контакт в сделку
+                requests.post(
+                    url='https://crm.grandmed.ru/rest/27036/pnkrzq23s3h1r71c/crm.deal.contact.add',
+                    headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
+                    data=json.dumps({
+                        'id': deal['result'],
+                        'fields': {'CONTACT_ID': contact},
+                    }),
+                    verify=False,
+                ).json()
+
+                # Добавляем товар
+                requests.post(
+                    url='https://crm.grandmed.ru/rest/27036/pnkrzq23s3h1r71c/crm.deal.productrows.set',
+                    headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
+                    data=json.dumps({
+                        "id": deal['result'],
+                        "rows": [{
+                            "PRODUCT_ID": 86565,
+
+                        }]
+                    }),
+                    verify=False,
+                ).json()
+
+    def _get_contact_by_reg_number(self, reg_num):
+        """Здесь все очень плохо. Устал уже все выносить по энамам и проч.
+        В идеале, на этом этапе уже надо полностью структуру проекта переписать."""
+
+        response = requests.post(
+            url='https://crm.grandmed.ru/rest/27036/pnkrzq23s3h1r71c/crm.contact.list',
+            headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
+            data=json.dumps({
+                'SELECT': ['ID'],
+                'FILTER': {
+                    'UF_CRM_1744899027': reg_num,
+                },
+                'ORDER': {'DATE_CREATE': 'ASC'},
+                'start': 0,
+            }),
+            verify=False,
+        ).json()
+
+        if 'result' in response and response['result']:
+            return response['result'][0]['ID']
+
+        else:
+            return None
+
     def _get_records_by_reg_nums(self, reg_nums):
         """Получаем рег. номера из битрикса чтобы понять, что уже загружено."""
 
@@ -310,30 +404,30 @@ class BitrixManager:
 
         _filter = {
             f"@{self.reg_num_field}": reg_nums,
-            "CATEGORY_ID": self.CATEGORY_ID,
+            "CATEGORY_ID": self.PATIENTS_CATEGORY_ID,
         }
-        _select = [self.reg_num_field]
+        _select = ['*']
 
         self.DATA.update({
             "FILTER": _filter,
             "SELECT": _select,
         })
 
-        records_by_reg_nums = self._get_response(self.LIST_METHOD)
+        records_by_reg_nums = self._get_response(self.LIST_METHOD, self.WEBHOOK_URL_PROD)
         reg_nums = set([rec[self.reg_num_field] for rec in records_by_reg_nums])
 
         self.logger.info(f"[BitrixManager] Найдено уже загруженных регистрационных номеров: {len(reg_nums)}")
 
         return reg_nums
 
-    def _get_response(self, method):
+    def _get_response(self, method, url):
         """Получение ответа от Bitrix API с пагинацией."""
         
         result = []
 
         def get_records():
             response = requests.post(
-                f"{self.WEBHOOK_URL}{method}",
+                f"{url}{method}",
                 headers=self.HEADERS,
                 data=json.dumps(self.DATA),
                 verify=False,
@@ -377,11 +471,13 @@ class BitrixManager:
 
         return result
 
-    def _upload_to_bitrix(self, record):
+    def _upload_to_bitrix(self, record, url):
         """Выгрузка сделки в Bitrix."""
 
+        deal_id = None
+
         try:
-            response = requests.post(f"{self.WEBHOOK_URL}{self.ADD_METHOD}", json={"fields": record}, verify=False)
+            response = requests.post(f"{url}{self.ADD_METHOD}", json={"fields": record}, verify=False)
             response.raise_for_status()
 
             if response.status_code == 200:
@@ -391,6 +487,8 @@ class BitrixManager:
                     error_msg = f"Ошибка Bitrix при создании сделки: {result.get('error', 'Неизвестная ошибка')}"
                     self.logger.warning(f"[BitrixManager] {error_msg}")
                     # Не добавляем в общий список ошибок, т.к. это может быть массовая операция
+                else:
+                    deal_id = result['result']
             else:
                 error_msg = f"Ошибка HTTP при отправке запроса: {response.status_code}"
                 self.logger.error(f"[BitrixManager] {error_msg}: {response.text}")
@@ -402,16 +500,26 @@ class BitrixManager:
         except Exception as e:
             self.logger.error(f"[BitrixManager] Неизвестная ошибка при загрузке в Bitrix: {str(e)}", exc_info=True)
 
+        return deal_id
+
+    def _set_deal_product(self, deal_id):
+        ...
+
+
     def _init_config(self):
         conf_path = "app/bitrix.conf"
         config = configparser.ConfigParser()
         config.read(conf_path)
 
-        self.WEBHOOK_URL = config.get("base", "webhook_url")
-        self.CATEGORY_ID = config.get("base", "category_id")
+        self.WEBHOOK_URL_PROD = config.get("base", "webhook_url_prod")
+        self.WEBHOOK_URL_TEST = config.get("base", "webhook_url_test")
+        self.PATIENTS_CATEGORY_ID = config.get("deals", "patients_category_id")
+        self.ANALYTICS_CATEGORY_ID = config.get("deals", "analytics_category_id")
         self.GET_METHOD = config.get("deals", "get_method")
         self.ADD_METHOD = config.get("deals", "add_method")
         self.LIST_METHOD = config.get("deals", "list_method")
+        self.PRODUCT_ID_PROD = config.get("deals", "product_id_prod")
+        self.PRODUCT_ID_TEST = config.get("deals", "product_id_test")
 
 
 class TelegramManager:

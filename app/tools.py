@@ -37,7 +37,7 @@ def upload():
         logger.info(f'Обработка файла {file}...')
 
         if 'analytics' in file:
-            skip_rows = 2
+            skip_rows = 3
             bottom_drops = [-1]
             func = 'a'
         elif 'specialists' in file:
@@ -63,7 +63,9 @@ def upload():
         indices_to_drop = [df.index[i] for i in bottom_drops]
         df = df.drop(indices_to_drop)
 
-        funcs[func](df)
+        df = sql_manager.process_analytics(df)
+        bitrix_manager.process_analytics(df)
+        # funcs[func](df)
 
 
 if __name__ == '__main__':

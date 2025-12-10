@@ -20,7 +20,7 @@ class Actions:
             await self.click(selector)
         elif action_type == "input" and selector:
             value = action["value"]
-            if isinstance(value, str) and value.startswith("${"):
+            if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
                 config_path = value[2:-1].split(".")
                 val = config
                 for key in config_path:

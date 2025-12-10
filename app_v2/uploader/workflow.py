@@ -19,6 +19,8 @@ class UploadWorkflow:
     async def run_step_login_and_prepare_download(self):
         await self.browser.start()
         self.page = self.browser.page
+        await self.page.goto(self.config["site"]["url"])
+        self.logger.info(f"Открыта страница логина: {self.config['site']['url']}")
         self.actions = Actions(self.browser)
         await self.actions.login(self.config["log_in_actions"], self.config)
 

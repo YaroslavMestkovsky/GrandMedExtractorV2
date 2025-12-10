@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from app_v2.uploader.browser import BrowserController
 from app_v2.uploader.actions import Actions
 from app_v2.uploader.reporter import Reporter
@@ -10,11 +11,15 @@ from app_v2.uploader.users_job import UsersJob
 class Uploader:
     def __init__(self, config, logger=None):
         self.config = config
+        # Если логгер не задан — заводим stdout-логгер INFO
+        if logger is None:
+            logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+            logger = logging.getLogger("GrandMedUploader")
         self.logger = logger
         self.browser_controller = BrowserController(config={
             "chromium_path": config["browser"].get("chromium_path"),
             "headless": config["browser"].get("headless", False),
-        }, logger=logger)
+        }, logger=self.logger)
         self.reporter = Reporter()
         self.jobs = {
             'analytics': AnalyticsJob(None, self.reporter), # репо пока None
@@ -24,7 +29,7 @@ class Uploader:
         self.workflow = UploadWorkflow(
             browser=self.browser_controller,
             config=config,
-            logger=logger,
+            logger=self.logger,
             reporter=self.reporter,
             jobs=self.jobs,
         )

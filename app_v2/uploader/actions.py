@@ -7,7 +7,7 @@ class Actions:
         await self.page.click(selector, timeout=timeout)
 
     async def input_text(self, selector, text, timeout=30000):
-        await self.page.fill(selector, text, timeout=timeout)
+        await self.page.fill(selector, str(text), timeout=timeout)
 
     async def login(self, login_actions: list, config: dict):
         for action in login_actions:

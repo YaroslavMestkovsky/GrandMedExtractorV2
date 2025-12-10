@@ -14,7 +14,7 @@ class Actions:
             await self.do_action(action, config)
 
     async def do_action(self, action: dict, config: dict):
-        action_type = action["type"]
+        action_type = action.get("type", "click")
         selector = action.get("selector") or action.get("id")
         if action_type == "click" and selector:
             await self.click(selector)

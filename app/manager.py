@@ -96,7 +96,7 @@ class SQLManager:
 
         df = df.replace({pd.NaT: ""})
         df = df.map(lambda x: "" if x is NaT else x)
-        return df #todo убрать после тестов
+
         final_count = df.shape[0]
         self.logger.info(f"[SQLManager] После фильтрации осталось {final_count} записей из {initial_count}")
 
@@ -501,10 +501,6 @@ class BitrixManager:
             self.logger.error(f"[BitrixManager] Неизвестная ошибка при загрузке в Bitrix: {str(e)}", exc_info=True)
 
         return deal_id
-
-    def _set_deal_product(self, deal_id):
-        ...
-
 
     def _init_config(self):
         conf_path = "app/bitrix.conf"

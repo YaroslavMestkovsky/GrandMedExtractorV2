@@ -19,8 +19,8 @@ class UploadWorkflow:
     async def run_step_login_and_prepare_download(self):
         await self.browser.start()
         self.page = self.browser.page
-        # await self.page.goto(self.config["site"]["url"])
-        # self.logger.info(f"Открыта страница логина: {self.config['site']['url']}")
+        await self.page.goto(self.config["site"]["url"])
+        self.logger.info(f"Открыта страница логина: {self.config['site']['url']}")
         self.actions = Actions(self.browser)
         await self.actions.login(self.config["log_in_actions"], self.config)
 
@@ -28,11 +28,7 @@ class UploadWorkflow:
         await self.download_manager.inject_interceptor()
         self.download_manager.subscribe_websocket()
 
-    async def run_step_open_page_and_download(self, actions_key: str, download_label: str, timeout=300):
-        url = self.config["site"]["url"]
-        await self.page.goto(url)
-        self.logger.info(f"Открыта страница: {url}")
-
+    async def run_step_download(self, actions_key: str, download_label: str, timeout=300):
         for action in self.config[actions_key]:
             await self.actions.do_action(action, self.config)
         await self.download_manager.wait_for_download(timeout=timeout)
@@ -47,7 +43,7 @@ class UploadWorkflow:
             ("users_actions", "Пациенты", self.users_job),
         ]
         for key, label, job in jobs_seq:
-            await self.run_step_open_page_and_download(actions_key=key, download_label=label)
+            await self.run_step_download(actions_key=key, download_label=label)
             job.process(None)  # stub
             result_stats[label] = "ok"
         self.reporter.add_stat('summary', result_stats)

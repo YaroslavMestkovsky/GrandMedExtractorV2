@@ -21,7 +21,14 @@ def upload():
 
     report_messages = {
         'messages': [],
-        'errors': '',
+        'errors': [],
+        'statistics': {
+            'analytics': {'uploaded': False, 'processed': False, 'records': 0},
+            'specialists': {'uploaded': False, 'processed': False, 'records': 0},
+            'users': {'uploaded': False, 'processed': False, 'records': 0},
+        },
+        'start_time': None,
+        'end_time': None,
     }
 
     sql_manager = SQLManager(logger, report_messages)
@@ -37,7 +44,7 @@ def upload():
         logger.info(f'Обработка файла {file}...')
 
         if 'analytics' in file:
-            skip_rows = 2
+            skip_rows = 3
             bottom_drops = [-1]
             func = 'a'
         elif 'specialists' in file:
@@ -63,8 +70,8 @@ def upload():
         indices_to_drop = [df.index[i] for i in bottom_drops]
         df = df.drop(indices_to_drop)
 
-        funcs[func](df)
-
+        df = funcs[func](df, from_scratch=True)
+        bitrix_manager.process_analytics(df)
 
 if __name__ == '__main__':
     check_db()

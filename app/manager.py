@@ -344,7 +344,7 @@ class BitrixManager:
                             'UF_CRM_1641810471884': record['specialist_execution'],
                             'STAGE_ID': 'C71:WON',
                             'ASSIGNED_BY_ID': '19240',
-                            'TYPE_ID': 'UC_SJBM0B',
+                            'TYPE_ID': 'UC_GTR0J0',
                             'OPPORTUNITY': record['total_amount'],
                         },
                     }),

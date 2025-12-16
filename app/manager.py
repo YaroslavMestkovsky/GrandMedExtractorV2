@@ -347,6 +347,7 @@ class BitrixManager:
                     }),
                     verify=False,
                 ).json()
+                print(deal)
 
                 # Добавляем контакт в сделку
                 requests.post(
@@ -360,7 +361,7 @@ class BitrixManager:
                 ).json()
 
                 # Добавляем товар
-                requests.post(
+                r = requests.post(
                     url='https://crm.grandmed.ru/rest/27036/pnkrzq23s3h1r71c/crm.deal.productrows.set',
                     headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
                     data=json.dumps({
@@ -372,6 +373,9 @@ class BitrixManager:
                     }),
                     verify=False,
                 ).json()
+                print(r)
+            else:
+                print(record['registration_number'])
 
     def _get_contact_by_reg_number(self, reg_num):
         """Здесь все очень плохо. Устал уже все выносить по энамам и проч.

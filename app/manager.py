@@ -347,14 +347,6 @@ class BitrixManager:
                     }),
                     verify=False,
                 ).json()
-                print({
-                        'CATEGORY_ID': '71',
-                        'UF_CRM_673DEA05D361C': record['appointment_date'],
-                        'UF_CRM_1641810471884': record['specialist_execution'],
-                        'STAGE_ID': 'C71:WON',
-                        'ASSIGNED_BY_ID': '19240',
-                        'TYPE_ID': 'Интеграция с qMS',
-                    })
 
                 # Добавляем контакт в сделку
                 requests.post(

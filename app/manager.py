@@ -344,6 +344,7 @@ class BitrixManager:
                         'STAGE_ID': 'C71:WON',
                         'ASSIGNED_BY_ID': '19240',
                         'TYPE_ID': 'Интеграция с qMS',
+                        'OPPORTUNITY_WITH_CURRENCY': record['total_amount'],
                     }),
                     verify=False,
                 ).json()

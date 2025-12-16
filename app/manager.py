@@ -338,13 +338,15 @@ class BitrixManager:
                     url='https://crm.grandmed.ru/rest/27036/pnkrzq23s3h1r71c/crm.deal.add',
                     headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
                     data=json.dumps({
-                        'CATEGORY_ID': '71',
-                        'UF_CRM_673DEA05D361C': record['appointment_date'],
-                        'UF_CRM_1641810471884': record['specialist_execution'],
-                        'STAGE_ID': 'C71:WON',
-                        'ASSIGNED_BY_ID': '19240',
-                        'TYPE_ID': 'UC_SJBM0B',
-                        'OPPORTUNITY': record['total_amount'],
+                        'fields': {
+                            'CATEGORY_ID': '71',
+                            'UF_CRM_673DEA05D361C': record['appointment_date'],
+                            'UF_CRM_1641810471884': record['specialist_execution'],
+                            'STAGE_ID': 'C71:WON',
+                            'ASSIGNED_BY_ID': '19240',
+                            'TYPE_ID': 'UC_SJBM0B',
+                            'OPPORTUNITY': record['total_amount'],
+                        },
                     }),
                     verify=False,
                 ).json()
@@ -368,7 +370,6 @@ class BitrixManager:
                         "id": deal['result'],
                         "rows": [{
                             "PRODUCT_ID": 86565,
-
                         }]
                     }),
                     verify=False,

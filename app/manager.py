@@ -337,8 +337,8 @@ class BitrixManager:
                 ad = record['appointment_date']
 
                 if ad:
-                    ad = datetime.datetime.strptime(ad, '%d.%m.%Y')
-                    ad = datetime.datetime.strftime(ad, '%d.%m.%Y %H:%M:%S')
+                    ad = datetime.datetime.strptime(ad, '%d.%m.%y')
+                    ad = datetime.datetime.strftime(ad, '%d.%m.%y %H:%M:%S')
 
                 # Создаем сделку
                 deal = requests.post(

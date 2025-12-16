@@ -344,7 +344,7 @@ class BitrixManager:
                         'STAGE_ID': 'C71:WON',
                         'ASSIGNED_BY_ID': '19240',
                         'TYPE_ID': 'Интеграция с qMS',
-                        'OPPORTUNITY_WITH_CURRENCY': record['total_amount'],
+                        'OPPORTUNITY': record['total_amount'],
                     }),
                     verify=False,
                 ).json()
@@ -361,7 +361,7 @@ class BitrixManager:
                 ).json()
 
                 # Добавляем товар
-                r = requests.post(
+                requests.post(
                     url='https://crm.grandmed.ru/rest/27036/pnkrzq23s3h1r71c/crm.deal.productrows.set',
                     headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
                     data=json.dumps({
@@ -373,7 +373,7 @@ class BitrixManager:
                     }),
                     verify=False,
                 ).json()
-                print(r)
+                print(deal['result'])
             else:
                 print(record['registration_number'])
 

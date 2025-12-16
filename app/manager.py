@@ -323,6 +323,7 @@ class BitrixManager:
                 'appointment_date',
                 'department_execution',
                 'specialist_execution',
+                'physician_department',
             ],
             as_index=False,
         )["total_amount"].sum() #todo
@@ -349,6 +350,7 @@ class BitrixManager:
                             'CATEGORY_ID': '71',
                             'UF_CRM_673DEA05D361C': ad,
                             'UF_CRM_1641810471884': record['specialist_execution'],
+                            'UF_CRM_1764945401873': record['physician_department'],
                             'STAGE_ID': 'C71:WON',
                             'ASSIGNED_BY_ID': '19240',
                             'TYPE_ID': 'UC_GTR0J0',

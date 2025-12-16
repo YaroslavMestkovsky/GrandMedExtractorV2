@@ -22,6 +22,7 @@ ANALYTICS_TO_BITRIX = {
         Analytics.__table__.columns.department_execution,
         Analytics.__table__.columns.specialist_execution,
         Analytics.__table__.columns.total_amount,
+        Analytics.__table__.columns.physician_department,
     ]
 }
 

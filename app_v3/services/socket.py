@@ -164,7 +164,7 @@ class SocketService:
             websocket_url: str,
             websockets_list: list,
             ws_block_patterns: list[str],
-            on_writefileend: Callable[[str], None],
+            on_write_file_end: Callable[[str], None],
     ) -> None:
         """Подключение обработчика к нужному WebSocket и отслеживание события."""
 
@@ -174,7 +174,7 @@ class SocketService:
 
                 if isinstance(data, dict) and data.get("Action") == "useraction" and data.get(
                         "path") == "_Writefileend":
-                    on_writefileend(payload_text)
+                    on_write_file_end(payload_text)
             except Exception:
                 pass
 

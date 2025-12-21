@@ -132,7 +132,7 @@ class BrowserManager:
     async def connect_to_socket(self):
         """Подключение обработчиков к целевому WebSocket (через сервис)."""
 
-        def on_writefileend(_payload: str) -> None:
+        def on_write_file_end(_payload: str) -> None:
             if self.active_download == self.analytics_today_uploaded:
                 self.analytics_uploaded = self.current_download = True
             elif self.active_download == self.analytics_period_uploaded:
@@ -161,7 +161,7 @@ class BrowserManager:
                 websocket_url=websocket_url,
                 websockets_list=self.websockets_list,
                 ws_block_patterns=self.ws_block_patterns,
-                on_writefileend=on_writefileend,
+                on_write_file_end=on_write_file_end,
             )
             app_logger.info("[BrM] WebSocket успешно подключен и настроен")
         except Exception as e:

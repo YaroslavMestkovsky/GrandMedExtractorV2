@@ -364,6 +364,7 @@ class BrowserManager:
         self.files_to_process.append(self.filename)
 
         # Сброс параметров загрузки перед новым формированием отчёта
+        self.current_file_uploaded = False
         self.download_params = None
         self.service.download_params = None
 

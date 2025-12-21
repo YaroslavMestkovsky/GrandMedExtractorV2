@@ -76,7 +76,6 @@ class Orchestrator:
         choice = None
 
         app_logger.info("[Orch] Начало загрузки аналитик за вчерашний день")
-        self.browser_manager.current_file_uploaded = False
         await self.browser_manager.setup_upload(self.analytics_today)
 
         # Сначала загружаем аналитики за вчерашний день, чтобы сразу обработать косметологию.
@@ -101,7 +100,6 @@ class Orchestrator:
         # Если сегодня нужен период, грузим ещё один файл.
         if choice:
             app_logger.info("[Orch] Начало загрузки аналитик за период")
-            self.browser_manager.current_file_uploaded = False
             await self.browser_manager.setup_upload(self.analytics_period)
 
             for action in MAIN_CONFIG["analytics_actions"]:

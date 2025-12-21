@@ -151,7 +151,7 @@ class BrowserManager:
                 websocket_url=websocket_url,
                 websockets_list=self.websockets_list,
                 ws_block_patterns=self.ws_block_patterns,
-                on_writefileend=on_write_file_end,
+                on_write_file_end=on_write_file_end,
             )
             app_logger.info("[BrM] WebSocket успешно подключен и настроен")
         except Exception as e:

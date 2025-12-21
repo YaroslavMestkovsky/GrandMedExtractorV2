@@ -38,7 +38,7 @@ class Orchestrator:
 
         await self._log_in()
 
-
+        await asyncio.sleep(10)
         await self.browser_manager.shutdown()
 
     async def _log_in(self):
@@ -47,7 +47,10 @@ class Orchestrator:
         app_logger.info("[Orch] Вход в систему")
 
         for action in MAIN_CONFIG["log_in_actions"]:
-            await self.browser_manager.click(action)
+            if 'value' in action:
+                await self.browser_manager.input(action)
+            else:
+                await self.browser_manager.click(action)
 
     def _fill_from_scratches_dates(self):
         """Подготовка словаря дат для определения периода перезаписи аналитик."""

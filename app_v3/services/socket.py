@@ -17,9 +17,9 @@ MAIN_CONFIG = app_config.main
 class SocketService:
     """Сервис для работы с сокетом загрузки файлов."""
 
-    def __init__(self, page, context):
-        self.page = page
+    def __init__(self, context, page):
         self.context = context
+        self.page = page
 
         self.download_params: Optional[Dict[str, Any]] = None
         self.cookies: Dict[str, str] = {}

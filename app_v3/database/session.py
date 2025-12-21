@@ -1,8 +1,8 @@
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app_v3.config import config
-from app_v3.database.models import Base, Analytics, Specialists
+from app_v3.utils.config import config
+from app_v3.database.models import Base
 
 
 def get_engine():

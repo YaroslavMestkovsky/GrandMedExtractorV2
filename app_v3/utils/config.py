@@ -1,7 +1,8 @@
 import os
-from typing import Dict, Any
-
 import yaml
+
+from typing import Dict, Any
+from app_v3.utils.logger import app_logger
 
 
 class MainConfig:
@@ -11,9 +12,11 @@ class MainConfig:
         self.database: Dict[str, Any]
         self.telegram: Dict[str, Any]
 
-        for config in os.listdir('configs'):
-            config_path = os.path.join('configs', config)
-            setattr(self, config.rsplit('.', 1)[0], self._load_config(config_path))
+        for _config in os.listdir('app_v3/configs'):
+            config_path = os.path.join('app_v3/configs', _config)
+            setattr(self, _config.rsplit('.', 1)[0], self._load_config(config_path))
+
+        app_logger.info('Config loaded.')
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         """Загрузка конфигурации из YAML файла.
@@ -29,4 +32,4 @@ class MainConfig:
             return yaml.safe_load(f)
 
 
-config = MainConfig()
+app_config = MainConfig()

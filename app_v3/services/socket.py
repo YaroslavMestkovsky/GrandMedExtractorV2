@@ -93,7 +93,7 @@ class SocketService:
             # Не критично
             pass
 
-    async def get_cookies(self) -> None:
+    async def get_cookies(self) -> Dict[str, str]:
         """Считывание cookies активного контекста браузера."""
 
         try:
@@ -106,8 +106,10 @@ class SocketService:
             self.cookies = cookie_dict
 
             app_logger.debug(f"[SSv] Cookies считаны: {list(self.cookies.keys())}")
+            return cookie_dict
         except Exception:
             self.cookies = {}
+            return {}
 
     async def download_via_http(self) -> bool:
         """Выполнение прямого HTTP‑скачивание, используя параметры и cookies."""

@@ -1,8 +1,10 @@
+import datetime
 import os
 import asyncio
 
 from pathlib import Path
 from typing import Dict, Optional, Any
+from uuid import uuid4
 
 from playwright.async_api import (
     async_playwright,
@@ -119,7 +121,7 @@ class BrowserManager:
         except Exception as e:
             app_logger.warning(f"[BrM] Не удалось инжектировать JS перехватчик WS: {e}")
 
-    async def _connect_to_socket(self):
+    async def connect_to_socket(self):
         """Подключение обработчиков к целевому WebSocket (через сервис)."""
 
         def on_write_file_end(_payload: str) -> None:
@@ -294,7 +296,11 @@ class BrowserManager:
         app_logger.debug(f"[BrM] Текст введён: {value}")
 
     async def fill_dates(self, action, _start, _end):
-        """Ввод дат в элемент 'С - По'. Переход между двумя полями через нажатие кнопки Tab."""
+        """Ввод дат в элемент 'С - По'. Переход между двумя полями через нажатие кнопки Tab.
+
+        Почему не используется метод input? Потому что при выделении поля даты что-то странное происходит с дивами,
+        и их невозможно заранее обозначить.
+        """
 
         action_desc = action.get('elem', 'Ввод дат')
         app_logger.debug(f"[BrM] {action_desc}: {_start.strftime('%d.%m.%Y')} - {_end.strftime('%d.%m.%Y')}")
@@ -316,6 +322,36 @@ class BrowserManager:
             error_msg = f"Ошибка при вводе дат: {str(e)}"
             app_logger.error(f"[BrM] {error_msg}")
             raise
+
+    async def setup_upload(self, active_download):
+        """Подготовка к загрузке файлов."""
+
+        now = datetime.datetime.now().strftime('d%d_m%m_y%Y')
+
+        self.active_download = active_download
+        self.filename = f'{active_download}__{now}__{uuid4().hex[:4]}.csv'
+        self.files_to_process.append(self.filename)
+
+        # Сброс параметров загрузки перед новым формированием отчёта
+        self.download_params = None
+        self.service.download_params = None
+
+        try:
+            await self.page.evaluate('() => { window.__DOWNLOAD_PARAMS = undefined; }')
+            app_logger.debug('[BrM] Сброшены параметры скачивания в окне')
+        except Exception:
+            pass
+
+        # Обновить параметры для перехватчика
+        await self._update_download_params()
+
+    async def _update_download_params(self) -> None:
+        """Обновление параметров скачивания (директория и имя) в окне."""
+
+        try:
+            await self.service.update_download_targets(self.redirect_dir, self.filename)
+        except Exception as e:
+            app_logger.warning(f"[BrM] Не удалось обновить параметры скачивания: {e}")
 
     async def shutdown(self) -> None:
         """Корректное завершение Playwright и браузера."""

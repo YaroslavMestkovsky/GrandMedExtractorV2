@@ -316,7 +316,7 @@ class BrowserManager:
             app_logger.error(f"[BrM] {error_msg}")
             raise
 
-    async def _shutdown(self) -> None:
+    async def shutdown(self) -> None:
         """Корректное завершение Playwright и браузера."""
 
         app_logger.info("[BrM] Начало завершения работы")

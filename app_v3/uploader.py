@@ -38,6 +38,9 @@ class Orchestrator:
 
         await self._log_in()
 
+
+        await self.browser_manager.shutdown()
+
     async def _log_in(self):
         """Вход в систему."""
 

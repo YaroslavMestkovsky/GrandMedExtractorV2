@@ -39,9 +39,17 @@ class BrowserManager:
         self.active_download = None
 
         # Загрузки
-        self.users = None
-        self.analytics = None
-        self.specialists = None
+        self.analytics_today = 'analytics_today'
+        self.analytics_period = 'analytics_period'
+        self.specialists = 'specialists'
+        self.users = 'users'
+
+        # Флаги
+        self.current_file_uploaded = False
+        self.analytics_today_uploaded = False
+        self.analytics_period_uploaded = False
+        self.specialists_uploaded = False
+        self.users_uploaded = False
 
         # Файлы
         self.filename = 'dummy'
@@ -125,12 +133,14 @@ class BrowserManager:
         """Подключение обработчиков к целевому WebSocket (через сервис)."""
 
         def on_write_file_end(_payload: str) -> None:
-            if self.active_download == self.users:
-                self.users_uploaded = True
-            elif self.active_download == self.analytics:
-                self.analytics_uploaded = True
+            if self.active_download == self.analytics_today_uploaded:
+                self.analytics_uploaded = self.current_download = True
+            elif self.active_download == self.analytics_period_uploaded:
+                self.analytics_uploaded = self.current_download = True
             elif self.active_download == self.specialists:
-                self.specialists_uploaded = True
+                self.specialists_uploaded = self.current_download = True
+            elif self.active_download == self.users:
+                self.users_uploaded = self.current_download = True
 
             asyncio.create_task(self._process_download_via_http())
 
@@ -159,6 +169,27 @@ class BrowserManager:
             app_logger.error(f"[BrM] {error_msg}")
             # self._add_error(error_msg) # TODO бот
             raise
+
+    async def await_for_download(self):
+        """Ожидание загрузки файлов."""
+
+        seconds = 0
+        max_wait_time = 3600 * 4  # Максимальное время ожидания: 4 часа
+
+        while not self.current_file_uploaded and seconds < max_wait_time:
+            seconds += 1
+            print(f"\r[BrM] Ожидание загрузки аналитик: {seconds} сек...", end="", flush=True)
+            await asyncio.sleep(1)
+
+        print()
+
+        if not self.current_file_uploaded:
+            error_msg = f"Таймаут загрузки ({max_wait_time} сек)"
+            app_logger.error(f"[BrM] {error_msg}")
+            # self._add_error(error_msg) # todo бот
+        else:
+            # self.report_messages['statistics']['analytics']['uploaded'] = True # todo бот
+            app_logger.info("[BrM] Файл успешно загружен")
 
     async def _process_download_via_http(self) -> None:
         """Обработка скачивания через HTTP после получения параметров из WebSocket."""

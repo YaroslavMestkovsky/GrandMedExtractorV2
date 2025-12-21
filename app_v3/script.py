@@ -2,7 +2,7 @@ import asyncio
 import urllib3
 
 from app_v3.utils.logger import app_logger
-from uploader import Uploader
+from uploader import Orchestrator
 
 
 # Отключение предупреждения о небезопасных HTTPS-запросах
@@ -10,7 +10,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 async def main():
-    uploader = Uploader()
+    uploader = Orchestrator()
 
     try:
         await uploader.run()

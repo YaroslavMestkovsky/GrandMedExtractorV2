@@ -70,7 +70,7 @@ class SocketService:
 
             if params and not self.download_params:
                 self.download_params = params
-                await self._get_cookies()
+                await self.get_cookies()
 
                 app_logger.debug(f"[SSv] Ранние параметры скачивания извлечены")
         except Exception:
@@ -93,7 +93,7 @@ class SocketService:
             # Не критично
             pass
 
-    async def _get_cookies(self) -> None:
+    async def get_cookies(self) -> None:
         """Считывание cookies активного контекста браузера."""
 
         try:

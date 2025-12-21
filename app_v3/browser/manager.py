@@ -265,10 +265,11 @@ class BrowserManager:
         """Получить cookies (через сервис)."""
 
         try:
-            await self.service.get_cookies()
+            cookies = await self.service.get_cookies()
 
-            if self.service.cookies:
-                self.cookies = self.service.cookies
+            if cookies:
+                self.cookies = cookies
+                self.service.cookies = cookies
         except Exception as e:
             app_logger.warning(f"[BrM] Не удалось получить cookies: {e}")
 

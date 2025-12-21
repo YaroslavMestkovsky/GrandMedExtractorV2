@@ -133,9 +133,9 @@ class BrowserManager:
         """Подключение обработчиков к целевому WebSocket (через сервис)."""
 
         def on_write_file_end(_payload: str) -> None:
-            if self.active_download == self.analytics_today_uploaded:
+            if self.active_download == self.analytics_today:
                 self.analytics_uploaded = self.current_file_uploaded = True
-            elif self.active_download == self.analytics_period_uploaded:
+            elif self.active_download == self.analytics_period:
                 self.analytics_uploaded = self.current_file_uploaded = True
             elif self.active_download == self.specialists:
                 self.specialists_uploaded = self.current_file_uploaded = True

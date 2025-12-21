@@ -15,7 +15,7 @@ from app_v3.utils.logger import app_logger
 from app_v3.utils.config import app_config
 
 
-MAIN_CONFIG = app_config["main"]
+MAIN_CONFIG = app_config.main
 
 
 class BrowserManager:

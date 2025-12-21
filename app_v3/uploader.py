@@ -7,7 +7,7 @@ from app_v3.utils.config import app_config
 from app_v3.utils.logger import app_logger
 
 
-MAIN_CONFIG = app_config["main"]
+MAIN_CONFIG = app_config.main
 
 
 class Orchestrator:

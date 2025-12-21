@@ -30,7 +30,7 @@ class SocketService:
     async def inject_interceptor(self) -> None:
         """Инжектирование перехватчика WebSocket и инициализирование глобалов."""
 
-        with open("websocket_interceptor.js", "r", encoding="utf-8") as t:
+        with open("app_v3/services/websocket_interceptor.js", "r", encoding="utf-8") as t:
             script = t.read()
 
         await self.context.add_init_script(script)

@@ -49,7 +49,6 @@ class Orchestrator:
         for action in MAIN_CONFIG["log_in_actions"]:
             await self.browser_manager.click(action)
 
-
     def _fill_from_scratches_dates(self):
         """Подготовка словаря дат для определения периода перезаписи аналитик."""
 

@@ -11,6 +11,7 @@ from playwright.async_api import (
     Page,
 )
 
+from app_v3.services.socket import SocketService
 from app_v3.utils.logger import app_logger
 from app_v3.utils.config import app_config
 
@@ -92,7 +93,7 @@ class BrowserManager:
         self.page = await self.context.new_page()
 
         # Инициализируем сервис скачивания
-        #self.service = SocketService(self.context, self.page, self.config, logger=app_logger)# todo
+        self.service = SocketService(self.context, self.page)
 
         self.page.on("websocket", on_websocket_created)
 

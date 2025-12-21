@@ -278,6 +278,11 @@ class BrowserManager:
         action_desc = action.get('elem', action.get('description', 'Неизвестное действие'))
         app_logger.debug(f"[BrM] Выполнение действия: {action_desc}")
 
+        if action.get("reset_wss"):
+            # Скидываем все веб-сокеты без авторизации
+            self.websockets_list = []
+            app_logger.debug("[BrM] Список WebSocket соединений сброшен")
+
         try:
             if text_to_search := action.get("text_to_search"):
                 inner_text = await self.page.locator(action["id"]).inner_text()
@@ -296,11 +301,6 @@ class BrowserManager:
 
             if sleep := action.get("sleep"):
                 await asyncio.sleep(sleep)
-
-            if action.get("reset_wss"):
-                # Скидываем все веб-сокеты без авторизации
-                self.websockets_list = []
-                app_logger.debug("[BrM] Список WebSocket соединений сброшен")
 
             app_logger.debug(f"[BrM] Действие '{action_desc}' выполнено успешно")
         except Exception as e:

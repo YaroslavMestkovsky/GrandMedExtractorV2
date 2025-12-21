@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Пути на основе директории скрипта
 VENV_PATH="$SCRIPT_DIR/venv/Scripts/activate"   # Для Git-Bash/WSL
-PYTHON_SCRIPT="$SCRIPT_DIR/app/script.py"       # Python-файл
+PYTHON_SCRIPT="$SCRIPT_DIR/app_v3/script.py"       # Python-файл
 REQUIREMENTS="$SCRIPT_DIR/requirements.txt"     # Файл зависимостей
 
 # Полный путь к директории скрипта (для отладки)
@@ -29,8 +29,8 @@ fi
 echo "Активация виртуального окружения..."
 source "$VENV_PATH"
 
-# Добавление корня проекта в PYTHONPATH (для импортов app.*)
-export PYTHONPATH="$SCRIPT_DIR:${PYTHONPATH}"
+# Добавление корня проекта в PYTHONPATH (для импортов)
+export PYTHONPATH="$SCRIPT_DIR:$SCRIPT_DIR/app_v3:${PYTHONPATH}"
 
 # Проверка, что Python доступен
 if ! command -v python &> /dev/null; then

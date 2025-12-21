@@ -18,16 +18,17 @@ class Orchestrator:
         self.browser_manager = BrowserManager()
 
         # Флаги
-        self.analytics_uploaded = False
-        self.cosmetology_uploaded = False
+        self.current_download = None
+        self.analytics_today_uploaded = False
+        self.analytics_period_uploaded = False
         self.specialists_uploaded = False
         self.users_uploaded = False
 
         # Загрузки
-        self.users = 'users'
         self.analytics_today = 'analytics_today'
         self.analytics_period = 'analytics_period'
         self.specialists = 'specialists'
+        self.users = 'users'
 
         # Даты
         self.dates_map = {
@@ -82,6 +83,7 @@ class Orchestrator:
         choice = None
 
         app_logger.info("[Orch] Начало загрузки аналитик за вчерашний день")
+        self.current_download = self.analytics_today_uploaded
         await self.browser_manager.setup_upload(self.analytics_today)
 
         # Сначала загружаем аналитики за вчерашний день, чтобы сразу обработать косметологию.
@@ -101,11 +103,12 @@ class Orchestrator:
 
             await self.browser_manager.click(action)
 
-        await self._await_for_download(self.analytics_uploaded)
+        await self._await_for_download()
 
         # Если сегодня нужен период, грузим ещё один файл.
         if choice:
             app_logger.info("[Orch] Начало загрузки аналитик за период")
+            self.current_download = self.analytics_period_uploaded
             await self.browser_manager.setup_upload(self.analytics_period)
 
             for action in MAIN_CONFIG["analytics_actions"]:
@@ -114,22 +117,22 @@ class Orchestrator:
 
                 await self.browser_manager.click(action)
 
-            await self._await_for_download(self.analytics_uploaded)
+            await self._await_for_download()
 
-    async def _await_for_download(self, flag):
+    async def _await_for_download(self):
         """Ожидание загрузки файлов."""
 
         seconds = 0
         max_wait_time = 3600 * 4  # Максимальное время ожидания: 4 часа
 
-        while not flag and seconds < max_wait_time:
+        while not self.current_download and seconds < max_wait_time:
             seconds += 1
             print(f"\r[Orch] Ожидание загрузки аналитик: {seconds} сек...", end="", flush=True)
             await asyncio.sleep(1)
 
         print()
 
-        if not flag:
+        if not self.current_download:
             error_msg = f"Таймаут загрузки ({max_wait_time} сек)"
             app_logger.error(f"[Orch] {error_msg}")
             # self._add_error(error_msg) # todo бот

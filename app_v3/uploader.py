@@ -53,6 +53,14 @@ class Orchestrator:
         await asyncio.sleep(3)
         print()
 
+        await self._upload_specialists()
+        await asyncio.sleep(3)
+        print()
+
+        await self._upload_users()
+        await asyncio.sleep(3)
+        print()
+
         await asyncio.sleep(10)
         await self.browser_manager.shutdown()
 
@@ -109,6 +117,40 @@ class Orchestrator:
                 await self.browser_manager.click(action)
 
             await self.browser_manager.await_for_download()
+
+    async def _upload_users(self):
+        """Запуск формирования отчета по пользователям."""
+
+        app_logger.info("[Uploader] Начало загрузки пациентов")
+        await self.browser_manager.setup_upload(self.users)
+
+        for action in MAIN_CONFIG["users_actions"]:
+            await self.browser_manager.click(action)
+
+        await self.browser_manager.await_for_download()
+
+        for action in MAIN_CONFIG["users_after_upload_actions"]:
+            await self.browser_manager.click(action)
+
+    async def _upload_specialists(self):
+        """Загрузка файла специалистов."""
+
+        app_logger.info("[Orch] Начало загрузки специалистов")
+        await self.browser_manager.setup_upload(self.specialists)
+
+        for action in MAIN_CONFIG["specialists_actions"]:
+            if action.get("is_date", False):
+                _start = self.dates_map[action["start"]]
+                _end = self.dates_map[action["end"]]
+
+                await self.browser_manager.fill_dates(action, _start, _end)
+            else:
+                await self.browser_manager.click(action)
+
+        await self.browser_manager.await_for_download()
+
+        for action in MAIN_CONFIG["specialists_after_upload_actions"]:
+            await self.browser_manager.click(action)
 
     def _fill_from_scratches_dates(self):
         """Подготовка словаря дат для определения периода перезаписи аналитик."""

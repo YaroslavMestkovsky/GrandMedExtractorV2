@@ -44,7 +44,7 @@ class Orchestrator:
     async def _log_in(self):
         """Вход в систему."""
 
-        app_logger("[Orch] Вход в систему")
+        app_logger.info("[Orch] Вход в систему")
 
         for action in MAIN_CONFIG["log_in_actions"]:
             await self.browser_manager.click(action)

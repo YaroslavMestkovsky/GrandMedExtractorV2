@@ -34,9 +34,13 @@ class FileProcessor:
 
         df = self.agregate_analytics(df)
         records = df.to_dict('records')
+        amount = len(records)
 
-        for record in records:
+        for num, record in enumerate(records, 1):
+            print(f"\r[FPr] Выгрузка Косметологии: {num}/{amount}", end="", flush=True)
             self.bitrix_manager.upload_cosmetology_to_bitrix(record)
+
+        print()
 
     def process_period_analytics(self, file):
         """Загрузка с перезаписью за период."""

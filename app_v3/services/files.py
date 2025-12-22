@@ -3,7 +3,8 @@ import pandas as pd
 
 from pathlib import Path
 
-from app_v3.database.enums import ANALYTICS_FIELDS, SPECIALISTS_FIELDS, BitrixEnum
+from app_v3.bitrix.manager import BitrixManager
+from app_v3.database.enums import ANALYTICS_FIELDS, SPECIALISTS_FIELDS, BitrixEnum, ANALYTICS_TO_BITRIX
 from app_v3.database.models import Analytics
 from app_v3.database.repositories import AnalyticsRepository, SpecialistsRepository
 from app_v3.utils.logger import app_logger
@@ -13,6 +14,7 @@ class FileProcessor:
     """Класс-процессор для обработки файлов."""
 
     def __init__(self, redirect_dir: Path):
+        self.bitrix_manager = BitrixManager()
         self.analytics_repository = AnalyticsRepository()
         self.specialists_repository = SpecialistsRepository()
         self.redirect_dir = redirect_dir
@@ -26,11 +28,15 @@ class FileProcessor:
         df = self.prepare_analytics_df(df)
 
         records_to_insert = df.to_dict("records")
-        self.analytics_repository.bulk_upload(records_to_insert)
+        #self.analytics_repository.bulk_upload(records_to_insert)
 
         app_logger.info("[FPr] Аналитики за день загружены.")
 
-        # todo космет
+        df = self.agregate_analytics(df)
+        records = df.to_dict('records')
+
+        for record in records:
+            self.bitrix_manager.upload_cosmetology_to_bitrix(record)
 
     def process_period_analytics(self, file):
         """Загрузка с перезаписью за период."""
@@ -84,6 +90,9 @@ class FileProcessor:
         df = df.dropna(subset=["material_number"])
         new_records = df[~df["material_number"].isin(existing_numbers)]
 
+        final_count = df.shape[0]
+        app_logger.info(f"[FPr] Отобрано {final_count}/{initial_count} записей специалистов")
+
         if new_records.empty:
             msg = "Нет новых записей по специалистам для загрузки"
             # self._add_message(msg) # todo бот
@@ -105,18 +114,51 @@ class FileProcessor:
         df = self.get_df(file, [-1], skip_rows=2)
         initial_count = df.shape[0]
 
-        columns_to_keep = [col for col in [col.strip() for col in df.columns] if col in BitrixEnum.USERS_COLUMNS]
+        columns_to_keep = [col for col in [col.strip() for col in df.columns] if col in BitrixEnum.NAME_TO_FIELD]
+        df.columns = df.columns.str.strip()
+        df = df[columns_to_keep]
+        df = df.rename(columns=BitrixEnum.NAME_TO_FIELD)
         df = df.where(pd.notna(df), None)
 
         for col in df.select_dtypes(include=["datetime64"]).columns:
             df[col] = df[col].astype(str)
 
+        final_count = df.shape[0]
+        app_logger.info(f"[FPr] Отобрано {final_count}/{initial_count} записей по пациентам")
+
         records = df.to_dict("records")
         reg_nums = [rec[BitrixEnum.REG_NUM] for rec in records]
         reg_nums = [reg_num for reg_num in reg_nums if reg_num]
 
-        final_count = df.shape[0]
-        app_logger.info(f"[FPr] Отфильтровано {final_count}/{initial_count} записей по пациентам")
+        uploaded_by_reg_num = self.bitrix_manager.get_records_by_reg_nums(reg_nums)
+        records_to_upload = [rec for rec in records if rec[BitrixEnum.REG_NUM] not in uploaded_by_reg_num]
+
+        skipped_count = len(records) - len(records_to_upload)
+
+        if skipped_count > 0:
+            msg = f"Пропущено уже загруженных пациентов: {skipped_count}"
+            # self._add_message(msg) # todo бот
+            app_logger.info(f"[BitrixManager] {msg}")
+
+        amount = len(records_to_upload)
+
+        if amount > 0:
+            app_logger.info(f"[FPr] Начало загрузки {amount} новых записей в Bitrix")
+
+            for num, record in enumerate(records_to_upload, 1):
+                self.bitrix_manager.modify_patients_record(record)
+                self.bitrix_manager.upload_to_bitrix(record)
+                print(f"\r[FPr] Выгрузка в Bitrix: {num}/{amount}", end="", flush=True)
+
+            print()
+            msg = f"Загружено новых записей по пациентам: {amount}"
+            # self._add_message(msg) # todo бот
+            # self.messages['statistics']['users']['records'] = amount
+            app_logger.info(f"[FPr] {msg}")
+        else:
+            msg = "Нет новых записей по пациентам для загрузки"
+            # self._add_message(msg) # todo bot
+            app_logger.info(f"[FPr] {msg}")
 
     def prepare_analytics_df(self, df):
         """Обработка дата-фрейма аналитик. Фильтры, группировки, исключения."""
@@ -160,7 +202,36 @@ class FileProcessor:
         df = df.map(lambda x: "" if x is pd.NaT else x)
 
         final_count = df.shape[0]
-        app_logger.info(f"[FPr] Отфильтровано {final_count}/{initial_count} записей аналитик")
+        app_logger.info(f"[FPr] Отобрано {final_count}/{initial_count} записей аналитик")
+
+        return df
+    
+    def agregate_analytics(self, df):
+        """Агрегация суммы по аналитикам и подготовка для выгрузки в битрикс."""
+
+        initial_count = df.shape[0]
+
+        df = (
+            df
+            [df["admission_type"] == "КОСМЕТОЛОГИЯ"]
+            [df["department_execution"] == "ХГМ КОСМ АМБ"]
+            [ANALYTICS_TO_BITRIX.values()]
+        )
+        df["total_amount"] = df["total_amount"].astype(float)
+        df = df.groupby(
+            [
+                'registration_number',
+                'full_name',
+                'appointment_date',
+                'department_execution',
+                'specialist_execution',
+            ],
+            as_index=False,
+        )["total_amount"].sum()
+        
+        final_count = df.shape[0]
+        app_logger.info(
+            f"[FPr] Отобрано {final_count}/{initial_count} записей аналитик Косметологии для выгрузки в Bitrix")
 
         return df
 
@@ -189,7 +260,6 @@ class FileProcessor:
             return None
 
 
-
 if __name__ == "__main__":
-    fp = FileProcessor(Path('/app_v3/services'))
-    fp.process_users('/users__d22_m12_y2025__b1c9.csv')
+    fp = FileProcessor(Path('app_v3/services'))
+    fp.process_today_analytics('analytics_today__d22_m12_y2025__2e98.csv')

@@ -1,0 +1,83 @@
+2025-12-22 21:20:05.272 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:20:24.931 | INFO     | __main__:process_users:103 - [FPr] Загрузка пациентов.
+2025-12-22 21:26:52.498 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:26:58.460 | INFO     | __main__:process_users:103 - [FPr] Загрузка пациентов.
+2025-12-22 21:29:47.811 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:29:51.024 | INFO     | __main__:process_users:106 - [FPr] Загрузка пациентов.
+2025-12-22 21:30:00.690 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:30:04.792 | INFO     | __main__:process_users:106 - [FPr] Загрузка пациентов.
+2025-12-22 21:30:27.112 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:30:27.155 | INFO     | __main__:process_users:106 - [FPr] Загрузка пациентов.
+2025-12-22 21:31:07.232 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:31:07.275 | INFO     | __main__:process_users:106 - [FPr] Загрузка пациентов.
+2025-12-22 21:31:42.617 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:31:42.655 | INFO     | __main__:process_users:106 - [FPr] Загрузка пациентов.
+2025-12-22 21:32:00.304 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:32:00.352 | INFO     | __main__:process_users:106 - [FPr] Загрузка пациентов.
+2025-12-22 21:32:15.032 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:32:15.074 | INFO     | __main__:process_users:106 - [FPr] Загрузка пациентов.
+2025-12-22 21:32:36.792 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:32:36.837 | INFO     | __main__:process_users:106 - [FPr] Загрузка пациентов.
+2025-12-22 21:33:12.298 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:33:12.341 | INFO     | __main__:process_users:106 - [FPr] Загрузка пациентов.
+2025-12-22 21:34:38.888 | INFO     | __main__:process_users:118 - [FPr] Отфильтровано 34/34 записей по пациентам
+2025-12-22 21:43:56.121 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:43:56.162 | INFO     | __main__:process_users:108 - [FPr] Загрузка пациентов.
+2025-12-22 21:44:13.785 | INFO     | __main__:process_users:123 - [FPr] Отфильтровано 34/34 записей по пациентам
+2025-12-22 21:52:24.201 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:52:24.243 | INFO     | __main__:process_users:108 - [FPr] Загрузка пациентов.
+2025-12-22 21:52:24.252 | INFO     | __main__:process_users:123 - [FPr] Отфильтровано 34/34 записей по пациентам
+2025-12-22 21:52:40.633 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:52:40.682 | INFO     | __main__:process_users:108 - [FPr] Загрузка пациентов.
+2025-12-22 21:52:40.694 | INFO     | __main__:process_users:123 - [FPr] Отфильтровано 34/34 записей по пациентам
+2025-12-22 21:53:23.324 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:53:23.364 | INFO     | __main__:process_users:108 - [FPr] Загрузка пациентов.
+2025-12-22 21:53:23.372 | INFO     | __main__:process_users:123 - [FPr] Отфильтровано 34/34 записей по пациентам
+2025-12-22 21:53:32.604 | INFO     | app_v3.bitrix.manager:get_records_by_reg_nums:49 - [BMn] Найдено уже загруженных регистрационных номеров: 0
+2025-12-22 21:54:07.592 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:54:07.642 | INFO     | __main__:process_users:108 - [FPr] Загрузка пациентов.
+2025-12-22 21:54:07.653 | INFO     | __main__:process_users:123 - [FPr] Отфильтровано 34/34 записей по пациентам
+2025-12-22 21:54:43.542 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:54:43.582 | INFO     | __main__:process_users:108 - [FPr] Загрузка пациентов.
+2025-12-22 21:54:43.593 | INFO     | __main__:process_users:123 - [FPr] Отфильтровано 34/34 записей по пациентам
+2025-12-22 21:57:10.603 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 21:57:10.647 | INFO     | __main__:process_users:108 - [FPr] Загрузка пациентов.
+2025-12-22 21:57:10.662 | INFO     | __main__:process_users:123 - [FPr] Отфильтровано 34/34 записей по пациентам
+2025-12-22 22:04:50.032 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 22:04:50.078 | INFO     | __main__:process_users:108 - [FPr] Загрузка пациентов.
+2025-12-22 22:04:50.092 | INFO     | __main__:process_users:123 - [FPr] Отфильтровано 34/34 записей по пациентам
+2025-12-22 22:04:50.094 | INFO     | __main__:process_users:142 - [FPr] Начало загрузки 34 новых записей в Bitrix
+2025-12-22 22:20:47.251 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 22:20:51.751 | INFO     | __main__:process_today_analytics:25 - [FPr] Загрузка аналитик за день, выгрузка Косметологии.
+2025-12-22 22:21:00.201 | INFO     | __main__:prepare_analytics_df:205 - [FPr] Отобрано 239/5279 записей аналитик
+2025-12-22 22:21:17.927 | INFO     | __main__:process_today_analytics:33 - [FPr] Аналитики за день загружены.
+2025-12-22 22:21:20.151 | INFO     | __main__:agregate_analytics:233 - [FPr] Отобрано 21/239 записей аналитик Косметологии для выгрузки в Bitrix
+2025-12-22 22:24:06.636 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 22:24:07.643 | INFO     | __main__:process_today_analytics:25 - [FPr] Загрузка аналитик за день, выгрузка Косметологии.
+2025-12-22 22:24:07.726 | INFO     | __main__:prepare_analytics_df:205 - [FPr] Отобрано 239/5279 записей аналитик
+2025-12-22 22:24:07.741 | INFO     | __main__:process_today_analytics:33 - [FPr] Аналитики за день загружены.
+2025-12-22 22:24:08.563 | INFO     | __main__:agregate_analytics:233 - [FPr] Отобрано 21/239 записей аналитик Косметологии для выгрузки в Bitrix
+2025-12-22 22:25:32.514 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 22:25:34.281 | INFO     | __main__:process_today_analytics:25 - [FPr] Загрузка аналитик за день, выгрузка Косметологии.
+2025-12-22 22:25:34.362 | INFO     | __main__:prepare_analytics_df:205 - [FPr] Отобрано 239/5279 записей аналитик
+2025-12-22 22:25:34.374 | INFO     | __main__:process_today_analytics:33 - [FPr] Аналитики за день загружены.
+2025-12-22 22:25:37.243 | INFO     | __main__:agregate_analytics:233 - [FPr] Отобрано 21/239 записей аналитик Косметологии для выгрузки в Bitrix
+2025-12-22 22:25:49.059 | ERROR    | app_v3.bitrix.manager:_get_contact_by_reg_number:112 - [BMn] Контакт с рег. номером 104/B19 не найден
+2025-12-22 22:26:27.459 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 22:26:29.032 | INFO     | __main__:process_today_analytics:25 - [FPr] Загрузка аналитик за день, выгрузка Косметологии.
+2025-12-22 22:26:29.116 | INFO     | __main__:prepare_analytics_df:205 - [FPr] Отобрано 239/5279 записей аналитик
+2025-12-22 22:26:29.122 | INFO     | __main__:process_today_analytics:33 - [FPr] Аналитики за день загружены.
+2025-12-22 22:26:32.223 | INFO     | __main__:agregate_analytics:233 - [FPr] Отобрано 21/239 записей аналитик Косметологии для выгрузки в Bitrix
+2025-12-22 22:26:34.441 | WARNING  | app_v3.bitrix.manager:_get_contact_by_reg_number:114 - [BMn] Контакт с рег. номером 104/B19 не найден
+2025-12-22 22:27:23.090 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 22:27:25.182 | INFO     | __main__:process_today_analytics:25 - [FPr] Загрузка аналитик за день, выгрузка Косметологии.
+2025-12-22 22:27:25.262 | INFO     | __main__:prepare_analytics_df:205 - [FPr] Отобрано 239/5279 записей аналитик
+2025-12-22 22:27:25.272 | INFO     | __main__:process_today_analytics:33 - [FPr] Аналитики за день загружены.
+2025-12-22 22:27:25.282 | INFO     | __main__:agregate_analytics:233 - [FPr] Отобрано 21/239 записей аналитик Косметологии для выгрузки в Bitrix
+2025-12-22 22:27:27.292 | WARNING  | app_v3.bitrix.manager:_get_contact_by_reg_number:114 - [BMn] Контакт с рег. номером 104/B19 не найден
+2025-12-22 22:27:48.842 | INFO     | app_v3.utils.config:__init__:19 - Config loaded.
+2025-12-22 22:27:48.882 | INFO     | __main__:process_today_analytics:25 - [FPr] Загрузка аналитик за день, выгрузка Косметологии.
+2025-12-22 22:27:48.964 | INFO     | __main__:prepare_analytics_df:205 - [FPr] Отобрано 239/5279 записей аналитик
+2025-12-22 22:27:48.972 | INFO     | __main__:process_today_analytics:33 - [FPr] Аналитики за день загружены.
+2025-12-22 22:27:48.982 | INFO     | __main__:agregate_analytics:233 - [FPr] Отобрано 21/239 записей аналитик Косметологии для выгрузки в Bitrix
+2025-12-22 22:27:50.944 | WARNING  | app_v3.bitrix.manager:_get_contact_by_reg_number:115 - [BMn] Контакт с рег. номером 104/B19 не найден

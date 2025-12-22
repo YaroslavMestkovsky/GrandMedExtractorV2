@@ -1,4 +1,5 @@
 import configparser
+import datetime
 import json
 import re
 import urllib3
@@ -322,6 +323,7 @@ class BitrixManager:
                 'appointment_date',
                 'department_execution',
                 'specialist_execution',
+                'physician_department',
             ],
             as_index=False,
         )["total_amount"].sum() #todo
@@ -333,17 +335,27 @@ class BitrixManager:
             contact = self._get_contact_by_reg_number(record['registration_number'])
 
             if contact:
+                ad = record['appointment_date']
+
+                if ad:
+                    ad = datetime.datetime.strptime(ad, '%d.%m.%y')
+                    ad = datetime.datetime.strftime(ad, '%d.%m.%Y %H:%M:%S')
+
                 # Создаем сделку
                 deal = requests.post(
                     url='https://crm.grandmed.ru/rest/27036/pnkrzq23s3h1r71c/crm.deal.add',
                     headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
                     data=json.dumps({
-                        'CATEGORY_ID': '65',
-                        'UF_CRM_673DEA05D361C': record['appointment_date'],
-                        'UF_CRM_1641810471884': record['specialist_execution'],
-                        'STAGE_ID': 'C44:WON',
-                        'ASSIGNED_BY_ID': '19240',
-                        'TYPE_ID': 'Интеграция с qMS',
+                        'fields': {
+                            'CATEGORY_ID': '71',
+                            'UF_CRM_673DEA05D361C': ad,
+                            'UF_CRM_1641810471884': record['specialist_execution'],
+                            'UF_CRM_1764945401873': record['physician_department'],
+                            'STAGE_ID': 'C71:WON',
+                            'ASSIGNED_BY_ID': '19240',
+                            'TYPE_ID': 'UC_GTR0J0',
+                            'OPPORTUNITY': record['total_amount'],
+                        },
                     }),
                     verify=False,
                 ).json()
@@ -359,19 +371,8 @@ class BitrixManager:
                     verify=False,
                 ).json()
 
-                # Добавляем товар
-                requests.post(
-                    url='https://crm.grandmed.ru/rest/27036/pnkrzq23s3h1r71c/crm.deal.productrows.set',
-                    headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
-                    data=json.dumps({
-                        "id": deal['result'],
-                        "rows": [{
-                            "PRODUCT_ID": 86565,
-
-                        }]
-                    }),
-                    verify=False,
-                ).json()
+            else:
+                print(record['registration_number'])
 
     def _get_contact_by_reg_number(self, reg_num):
         """Здесь все очень плохо. Устал уже все выносить по энамам и проч.
@@ -501,10 +502,6 @@ class BitrixManager:
             self.logger.error(f"[BitrixManager] Неизвестная ошибка при загрузке в Bitrix: {str(e)}", exc_info=True)
 
         return deal_id
-
-    def _set_deal_product(self, deal_id):
-        ...
-
 
     def _init_config(self):
         conf_path = "app/bitrix.conf"

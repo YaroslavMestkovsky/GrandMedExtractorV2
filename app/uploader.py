@@ -428,8 +428,9 @@ class Uploader:
         self.logger.info(f"[Uploader] Начало обработки аналитик: {len(df)} записей")
         df = self.sql_manager.process_analytics(df, **kwargs)
 
-        self.logger.info(f"[Uploader] Обработка аналитик для выгрузки Косметологии в битрикс.")
-        self.bitrix_manager.process_analytics(df)
+        if not self.from_scratch:
+            self.logger.info(f"[Uploader] Обработка аналитик для выгрузки Косметологии в битрикс.")
+            self.bitrix_manager.process_analytics(df)
 
         self.report_messages['statistics']['analytics']['processed'] = True
         self.logger.info("[Uploader] Аналитики успешно обработаны")

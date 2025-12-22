@@ -186,6 +186,8 @@ class BitrixManager:
 
         app_logger.info(f"[BMn] Найдено уже загруженных регистрационных номеров: {len(reg_nums)}")
 
+        return reg_nums
+
     def modify_patients_record(self, record):
         record["PATIENTS_CATEGORY_ID"] = BITRIX_CONFIG['deals']['patients_category_id']
 

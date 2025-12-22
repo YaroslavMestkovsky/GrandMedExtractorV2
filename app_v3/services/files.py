@@ -28,7 +28,7 @@ class FileProcessor:
         df = self.prepare_analytics_df(df)
 
         records_to_insert = df.to_dict("records")
-        #self.analytics_repository.bulk_upload(records_to_insert)
+        self.analytics_repository.bulk_upload(records_to_insert)
 
         app_logger.info("[FPr] Аналитики за день загружены.")
 
@@ -225,6 +225,7 @@ class FileProcessor:
                 'appointment_date',
                 'department_execution',
                 'specialist_execution',
+                'physician_department',
             ],
             as_index=False,
         )["total_amount"].sum()
@@ -258,8 +259,3 @@ class FileProcessor:
 
         else:
             return None
-
-
-if __name__ == "__main__":
-    fp = FileProcessor(Path('app_v3/services'))
-    fp.process_today_analytics('analytics_today__d22_m12_y2025__2e98.csv')

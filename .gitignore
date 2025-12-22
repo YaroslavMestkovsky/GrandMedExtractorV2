@@ -4,3 +4,4 @@ files
 /app/downloads/
 *.yaml
 *.conf
+*.log

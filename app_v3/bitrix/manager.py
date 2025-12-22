@@ -1,3 +1,4 @@
+import datetime
 import json
 from typing import Any
 
@@ -33,7 +34,7 @@ class BitrixManager:
 
         try:
             response = requests.post(
-                f"{BITRIX_CONFIG['base']['webhook_url_prod']}{BITRIX_CONFIG['deals']['add_method']}",
+                f"{BITRIX_CONFIG['base']['_webhook_url_prod']}{BITRIX_CONFIG['deals']['add_method']}",
                 json={"fields": record},
                 verify=False,
             )
@@ -69,18 +70,25 @@ class BitrixManager:
         contact = self._get_contact_by_reg_number(reg_num)
 
         if contact:
+            appointment_date = record['appointment_date']
+
+            # FIXME довольно уродская подготовка записи для отправки.
+            #  Однажды нужно переписать на проставление корректных полей на этапе обработки df
             record = {
-                'CATEGORY_ID': '65',
-                'UF_CRM_673DEA05D361C': record['appointment_date'],
-                'UF_CRM_1641810471884': record['specialist_execution'],
-                'STAGE_ID': 'C44:WON',
-                'ASSIGNED_BY_ID': '19240',
-                'TYPE_ID': 'Интеграция с qMS',
+                BitrixEnum.APPOINTMENT_DATE: self._modify_date_format(appointment_date) if appointment_date else None,
+                BitrixEnum.SPEC_EXECUTION: record['specialist_execution'],
+                BitrixEnum.PHYS_DEPARTMENT: record['physician_department'],
+                BitrixEnum.TOTAL_AMOUNT: record['total_amount'],
+                BitrixEnum.CATEGORY_ID: BITRIX_CONFIG['cosmetology']['category_id'],
+                BitrixEnum.STAGE_ID: BITRIX_CONFIG['cosmetology']['stage_id'],
+                BitrixEnum.ASSIGNED_BY_ID: BITRIX_CONFIG['cosmetology']['assigned_by_id'],
+                BitrixEnum.TYPE_ID: BITRIX_CONFIG['cosmetology']['type_id'],
             }
             deal_id = self.upload_to_bitrix(record)
+            self._add_contact_to_deal(deal_id, contact)
+
         else:
             not_found_contacts.append(reg_num)
-
 
     def _get_contact_by_reg_number(self, reg_num):
         """Находим контакт юзера по его рег. номеру."""
@@ -124,6 +132,37 @@ class BitrixManager:
             app_logger.error(f"[BMn] Неизвестная ошибка при загрузке в Bitrix: {str(e)}", exc_info=True)
 
         return contact_id
+
+    def _add_contact_to_deal(self, deal_id, contact):
+        try:
+            response = requests.post(
+                f"{BITRIX_CONFIG['base']['_webhook_url_prod']}{BITRIX_CONFIG['deals']['contact_add_method']}",
+                headers=self.HEADERS,
+                data=json.dumps({
+                    'id': deal_id,
+                    'fields': {'CONTACT_ID': contact},
+                }),
+                verify=False,
+            )
+            response.raise_for_status()
+
+            if response.status_code == 200:
+                result = response.json()
+
+                if "error" in result:
+                    error_msg = f"Ошибка Bitrix при создании сделки: {result.get('error', 'Неизвестная ошибка')}"
+                    app_logger.warning(f"[BMn] {error_msg}")
+                    # Не добавляем в общий список ошибок, т.к. это может быть массовая операция
+            else:
+                error_msg = f"Ошибка HTTP при отправке запроса: {response.status_code}"
+                app_logger.error(f"[BMn] {error_msg}: {response.text}")
+
+        except requests.exceptions.RequestException as e:
+            app_logger.error(f"[BMn] Ошибка HTTP-запроса при загрузке в Bitrix: {str(e)}")
+        except json.JSONDecodeError as e:
+            app_logger.error(f"[BMn] Ошибка декодирования JSON из ответа сервера: {str(e)}")
+        except Exception as e:
+            app_logger.error(f"[BMn] Неизвестная ошибка при загрузке в Bitrix: {str(e)}", exc_info=True)
 
     def get_records_by_reg_nums(self, reg_nums):
         """Получение всех записей по переданному списку рег. номеров."""
@@ -197,3 +236,10 @@ class BitrixManager:
             raise
 
         return result
+
+    @staticmethod
+    def _modify_date_format(_date):
+        _date = datetime.datetime.strptime(_date, '%d.%m.%y')
+        _date = datetime.datetime.strftime(_date, '%d.%m.%Y %H:%M:%S')
+
+        return _date

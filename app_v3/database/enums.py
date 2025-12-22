@@ -22,6 +22,7 @@ ANALYTICS_TO_BITRIX = {
         Analytics.__table__.columns.department_execution,
         Analytics.__table__.columns.specialist_execution,
         Analytics.__table__.columns.total_amount,
+        Analytics.__table__.columns.physician_department,
     ]
 }
 
@@ -37,6 +38,15 @@ class BitrixEnum:
     CREATION = "DATE_CREATE"
 
     CONTACT_REG_NUM = "UF_CRM_1744899027"
+
+    APPOINTMENT_DATE = 'UF_CRM_673DEA05D361C'
+    SPEC_EXECUTION = 'UF_CRM_1641810471884'
+    PHYS_DEPARTMENT = 'UF_CRM_1764945401873'
+    TOTAL_AMOUNT = 'OPPORTUNITY'
+    CATEGORY_ID = 'CATEGORY_ID'
+    STAGE_ID = 'STAGE_ID'
+    ASSIGNED_BY_ID = 'ASSIGNED_BY_ID'
+    TYPE_ID = 'TYPE_ID'
     
     NAME_TO_FIELD = {
         "Рег.номер": "UF_CRM_1744898975",

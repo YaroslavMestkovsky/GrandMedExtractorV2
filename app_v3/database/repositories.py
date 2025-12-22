@@ -16,7 +16,7 @@ class BaseRepository:
             total_rows = len(records)
             chunk_size = 50000
             app_logger.info(
-                f"[ARep] Начало массовой загрузки {total_rows} записей (чанки по {chunk_size})",
+                f"[BRep] Начало массовой загрузки {total_rows} записей (чанки по {chunk_size})",
             )
 
             for i in range(0, len(records), chunk_size):
@@ -26,7 +26,7 @@ class BaseRepository:
                 self.session.commit()
 
                 print(
-                    f"\r[ARep] Загрузка: {min(i + chunk_size, total_rows)}/{total_rows} записей...",
+                    f"\r[BRep] Загрузка: {min(i + chunk_size, total_rows)}/{total_rows} записей...",
                     end="",
                     flush=True,
                 )
@@ -34,13 +34,13 @@ class BaseRepository:
             print()
             msg = f"Загружено записей: {total_rows}"
             # self._add_message(msg) # todo бот
-            app_logger.info(f"[ARep] {msg}")
+            app_logger.info(f"[BRep] {msg}")
         except Exception as e:
             self.session.rollback()
 
             err = f"Ошибка при загрузке данных: {str(e)}"
             # self._add_error(err) # todo бот
-            app_logger.error(f"[SQLManager] {err}", exc_info=True)
+            app_logger.error(f"[BRep] {err}", exc_info=True)
             raise
 
 class AnalyticsRepository(BaseRepository):
@@ -52,8 +52,8 @@ class AnalyticsRepository(BaseRepository):
         self.model = Analytics
 
     def delete_records(self, _filter):
-        self.session.query(Analytics).filter(_filter).delete(synchronize_session=False)
-
+        deleted = self.session.query(Analytics).filter(_filter).delete(synchronize_session=False)
+        app_logger.info(f"[ARep] удалено старых записей за период: {deleted}")
 
 class SpecialistsRepository(BaseRepository):
     """Репозиторий для работы с моделью специалистов."""

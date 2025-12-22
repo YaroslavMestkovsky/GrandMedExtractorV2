@@ -34,7 +34,7 @@ class BitrixManager:
 
         try:
             response = requests.post(
-                f"{BITRIX_CONFIG['base']['_webhook_url_prod']}{BITRIX_CONFIG['deals']['add_method']}",
+                f"{BITRIX_CONFIG['base']['webhook_url_prod']}{BITRIX_CONFIG['deals']['add_method']}",
                 json={"fields": record},
                 verify=False,
             )
@@ -136,7 +136,7 @@ class BitrixManager:
     def _add_contact_to_deal(self, deal_id, contact):
         try:
             response = requests.post(
-                f"{BITRIX_CONFIG['base']['_webhook_url_prod']}{BITRIX_CONFIG['deals']['contact_add_method']}",
+                f"{BITRIX_CONFIG['base']['webhook_url_prod']}{BITRIX_CONFIG['deals']['contact_add_method']}",
                 headers=self.HEADERS,
                 data=json.dumps({
                     'id': deal_id,

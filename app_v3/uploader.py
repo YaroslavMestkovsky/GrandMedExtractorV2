@@ -74,6 +74,7 @@ class Orchestrator:
         app_logger.info("=" * 60)
 
         self.file_processor.process_today_analytics(self.today_analytics_file)
+        await asyncio.sleep(10)
 
         if self.period_analytics_file:
             self.file_processor.process_period_analytics(self.period_analytics_file)

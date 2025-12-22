@@ -1,12 +1,12 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app_v3.utils.config import config
+from app_v3.utils.config import app_config
 from app_v3.database.models import Base
 
 
 def get_engine():
-    conf = config.database['postgresql']
+    conf = app_config.database['postgresql']
 
     url = (
         f"postgresql+psycopg2://{conf['user']}:{conf['password']}@"

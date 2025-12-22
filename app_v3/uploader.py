@@ -4,6 +4,7 @@ import calendar
 from uuid import uuid4
 
 from app_v3.browser.manager import BrowserManager
+from app_v3.services.files import FileProcessor
 from app_v3.utils.config import app_config
 from app_v3.utils.logger import app_logger
 
@@ -16,10 +17,17 @@ class Orchestrator:
 
     def __init__(self):
         self.browser_manager = BrowserManager()
+        self.file_processor = FileProcessor(self.browser_manager.redirect_dir)
+
+        # Файлы
+        self.today_analytics_file = None
+        self.period_analytics_file = None
+        self.users_file = None
+        self.specialists_file = None
 
         # Загрузки
-        self.analytics_today = 'analytics_today'
-        self.analytics_period = 'analytics_period'
+        self.today_analytics = 'today_analytics'
+        self.period_analytics = 'period_analytics'
         self.specialists = 'specialists'
         self.users = 'users'
 
@@ -35,7 +43,7 @@ class Orchestrator:
         """Alga!"""
 
         app_logger.info("=" * 60)
-        app_logger.info("[Orch] Старт")
+        app_logger.info("[Orch] Начало загрузки данных")
         app_logger.info("=" * 60)
 
         await self.browser_manager.setup_browser()
@@ -61,6 +69,18 @@ class Orchestrator:
         await asyncio.sleep(3)
         print()
 
+        app_logger.info("=" * 60)
+        app_logger.info("[Orch] Начало обработки загруженных данных.")
+        app_logger.info("=" * 60)
+
+        self.file_processor.process_today_analytics(self.today_analytics_file)
+
+        if self.period_analytics_file:
+            self.file_processor.process_period_analytics(self.period_analytics_file)
+
+        self.file_processor.process_users(self.users_file)
+        self.file_processor.process_specialists(self.specialists_file)
+
         await asyncio.sleep(10)
         await self.browser_manager.shutdown()
 
@@ -84,7 +104,8 @@ class Orchestrator:
         choice = None
 
         app_logger.info("[Orch] Начало загрузки аналитик за вчерашний день")
-        await self.browser_manager.setup_upload(self.analytics_today)
+        file_name = await self.browser_manager.setup_upload(self.today_analytics)
+        self.today_analytics_file = file_name
 
         # Сначала загружаем аналитики за вчерашний день, чтобы сразу обработать косметологию.
         for action in MAIN_CONFIG["analytics_actions"]:
@@ -108,7 +129,8 @@ class Orchestrator:
         # Если сегодня нужен период, грузим ещё один файл.
         if choice:
             app_logger.info("[Orch] Начало загрузки аналитик за период")
-            await self.browser_manager.setup_upload(self.analytics_period)
+            file_name = await self.browser_manager.setup_upload(self.period_analytics)
+            self.period_analytics_file = file_name
 
             for action in MAIN_CONFIG["analytics_actions"]:
                 if action.get("calculate_date"):
@@ -121,8 +143,9 @@ class Orchestrator:
     async def _upload_users(self):
         """Запуск формирования отчета по пользователям."""
 
-        app_logger.info("[Uploader] Начало загрузки пациентов")
-        await self.browser_manager.setup_upload(self.users)
+        app_logger.info("[Orch] Начало загрузки пациентов")
+        file_name = await self.browser_manager.setup_upload(self.users)
+        self.users_file = file_name
 
         for action in MAIN_CONFIG["users_actions"]:
             await self.browser_manager.click(action)
@@ -136,7 +159,8 @@ class Orchestrator:
         """Загрузка файла специалистов."""
 
         app_logger.info("[Orch] Начало загрузки специалистов")
-        await self.browser_manager.setup_upload(self.specialists)
+        file_name = await self.browser_manager.setup_upload(self.specialists)
+        self.specialists_file = file_name
 
         for action in MAIN_CONFIG["specialists_actions"]:
             if action.get("is_date", False):

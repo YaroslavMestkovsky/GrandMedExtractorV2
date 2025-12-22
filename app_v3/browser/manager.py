@@ -39,21 +39,20 @@ class BrowserManager:
         self.active_download = None
 
         # Загрузки
-        self.analytics_today = 'analytics_today'
-        self.analytics_period = 'analytics_period'
+        self.today_analytics = 'today_analytics'
+        self.period_analytics = 'period_analytics'
         self.specialists = 'specialists'
         self.users = 'users'
 
         # Флаги
         self.current_file_uploaded = False
-        self.analytics_today_uploaded = False
-        self.analytics_period_uploaded = False
+        self.today_analytics_uploaded = False
+        self.period_analytics_uploaded = False
         self.specialists_uploaded = False
         self.users_uploaded = False
 
         # Файлы
         self.filename = 'dummy'
-        self.files_to_process: list = []
         self.cookies: Dict[str, str] = {}
         self.download_params: Optional[Dict[str, Any]] = None
         self.redirect_dir: Path = Path(MAIN_CONFIG["download"]["output_dir"]).absolute()
@@ -133,9 +132,9 @@ class BrowserManager:
         """Подключение обработчиков к целевому WebSocket (через сервис)."""
 
         def on_write_file_end(_payload: str) -> None:
-            if self.active_download == self.analytics_today:
+            if self.active_download == self.today_analytics:
                 self.analytics_uploaded = self.current_file_uploaded = True
-            elif self.active_download == self.analytics_period:
+            elif self.active_download == self.period_analytics:
                 self.analytics_uploaded = self.current_file_uploaded = True
             elif self.active_download == self.specialists:
                 self.specialists_uploaded = self.current_file_uploaded = True
@@ -354,14 +353,13 @@ class BrowserManager:
             app_logger.error(f"[BrM] {error_msg}")
             raise
 
-    async def setup_upload(self, active_download):
+    async def setup_upload(self, active_download) -> str:
         """Подготовка к загрузке файлов."""
 
         now = datetime.datetime.now().strftime('d%d_m%m_y%Y')
 
         self.active_download = active_download
         self.filename = f'{active_download}__{now}__{uuid4().hex[:4]}.csv'
-        self.files_to_process.append(self.filename)
 
         # Сброс параметров загрузки перед новым формированием отчёта
         self.current_file_uploaded = False
@@ -376,6 +374,8 @@ class BrowserManager:
 
         # Обновить параметры для перехватчика
         await self._update_download_params()
+
+        return self.filename
 
     async def _update_download_params(self) -> None:
         """Обновление параметров скачивания (директория и имя) в окне."""

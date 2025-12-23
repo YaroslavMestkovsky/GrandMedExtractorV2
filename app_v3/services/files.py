@@ -45,7 +45,7 @@ class FileProcessor:
             f'Выгружено {amount - len(self.bitrix_manager.not_found_contacts)}/{amount} записей по Косметологии')
 
         if self.bitrix_manager.not_found_contacts:
-            reporter.add_info(f'Не найденные контакты: \n```{self.bitrix_manager.not_found_contacts}```')
+            reporter.add_info(f'Не найденные контакты: \n``` {self.bitrix_manager.not_found_contacts} ```')
 
         print()
 

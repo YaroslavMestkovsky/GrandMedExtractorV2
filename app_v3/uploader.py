@@ -101,7 +101,7 @@ class Orchestrator:
         end = datetime.datetime.now()
         duration = end - start
 
-        reporter.add_info(f'\nВремя выполнения: {duration}')
+        reporter.add_info(f'Время выполнения: {duration}')
         reporter.send_message()
 
     async def _log_in(self):

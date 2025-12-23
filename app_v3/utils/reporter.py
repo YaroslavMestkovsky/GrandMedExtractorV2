@@ -20,12 +20,12 @@ class TelegramService:
         self.EXCEPTIONS.append(ex)
 
     def send_message(self):
-        today_str = date.today().strftime("%d.%m.%Y")
+        yesterday_str = date.today().strftime("%d.%m.%Y")
         info = '\n✅'.join(self.INFO)
         exceptions = '\n⚠️'.join(self.EXCEPTIONS)
 
         message = f"""
-        "📊 *Отчёт о выгрузке данных за {today_str}*"
+        "📊 *Отчёт о выгрузке данных за {yesterday_str}*"
         
         Информация по выгрузке:
         {info}

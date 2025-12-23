@@ -1,4 +1,7 @@
+import datetime
 import re
+from collections import defaultdict
+
 import pandas as pd
 
 from pathlib import Path
@@ -20,21 +23,15 @@ class FileProcessor:
         self.specialists_repository = SpecialistsRepository()
         self.redirect_dir = redirect_dir
 
-    def process_today_analytics(self, file):
-        """Загрузка за текущий день и выгрузка Косметологии."""
+    def process_yesterday_analytics(self, file):
+        """Загрузка за вчерашний день и выгрузка Косметологии."""
 
-        app_logger.info("[FPr] Загрузка аналитик за день, выгрузка Косметологии.")
+        app_logger.info("[FPr] Выгрузка Косметологии.")
 
         df = self.get_df(file, [-1])
         df = self.prepare_analytics_df(df)
 
-        records_to_insert = df.to_dict("records")
-        self.analytics_repository.bulk_upload(records_to_insert)
-
-        app_logger.info("[FPr] Аналитики за день загружены.")
-
-        df = self.agregate_analytics(df)
-        records = df.to_dict('records')
+        records = self.merge_cosmetology_analytics(df)
         amount = len(records)
 
         for num, record in enumerate(records, 1):
@@ -49,7 +46,7 @@ class FileProcessor:
 
         print()
 
-    def process_period_analytics(self, file):
+    def process_period_analytics(self, file, from_scratch):
         """Загрузка с перезаписью за период."""
 
         app_logger.info("[FPr] Загрузка аналитик за период .")
@@ -58,9 +55,10 @@ class FileProcessor:
         df = self.prepare_analytics_df(df)
 
         # Удаляем перезаписываемые записи
-        instance_codes = list(df['instance_code'])
-        _filter = Analytics.instance_code.in_(instance_codes)
-        self.analytics_repository.delete_records(_filter)
+        if from_scratch:
+            instance_codes = list(df['instance_code'])
+            _filter = Analytics.instance_code.in_(instance_codes)
+            self.analytics_repository.delete_records(_filter)
 
         records_to_insert = df.to_dict("records")
         self.analytics_repository.bulk_upload(records_to_insert)
@@ -147,8 +145,7 @@ class FileProcessor:
         skipped_count = len(records) - len(records_to_upload)
 
         if skipped_count > 0:
-            msg = f"Пропущено уже загруженных пациентов: {skipped_count}"
-            app_logger.info(f"[BitrixManager] {msg}")
+            app_logger.info(f"[BitrixManager] Пропущено уже загруженных пациентов: {skipped_count}")
 
         amount = len(records_to_upload)
 
@@ -167,6 +164,7 @@ class FileProcessor:
         else:
             msg = "Нет новых записей по пациентам для загрузки"
             app_logger.info(f"[FPr] {msg}")
+            reporter.add_info(msg)
 
     def prepare_analytics_df(self, df):
         """Обработка дата-фрейма аналитик. Фильтры, группировки, исключения."""
@@ -216,9 +214,11 @@ class FileProcessor:
 
         return df
     
-    def agregate_analytics(self, df):
+    def merge_cosmetology_analytics(self, df):
         """Агрегация суммы по аналитикам и подготовка для выгрузки в битрикс."""
 
+        records = []
+        records_map = defaultdict(list)
         initial_count = df.shape[0]
 
         df = (
@@ -228,24 +228,37 @@ class FileProcessor:
             [ANALYTICS_TO_BITRIX.values()]
         )
         df["total_amount"] = df["total_amount"].astype(float)
-        df = df.groupby(
-            [
-                'registration_number',
-                'full_name',
-                'appointment_date',
-                'department_execution',
-                'specialist_execution',
-                'physician_department',
-            ],
-            as_index=False,
-        )["total_amount"].sum()
         
-        final_count = df.shape[0]
-        msg = f"[FPr] Отобрано {final_count}/{initial_count} записей аналитик Косметологии для выгрузки в Bitrix"
+        raw_records = df.to_dict("records")
+        
+        for record in raw_records:
+            records_map[f"'{record['registration_number']}{record['full_name']}'"].append(record)
+            
+        for records_list in records_map.values():
+            records.append(self._merge_cosmetology_records(records_list))
+
+        msg = f"[FPr] Отобрано {len(records)}/{initial_count} записей аналитик Косметологии для выгрузки в Bitrix"
         app_logger.info(msg)
         reporter.add_info(msg)
 
         return df
+    
+    def _merge_cosmetology_records(self, records):
+        """Объединение данных для выгрузки в косметологию."""
+
+        result = {}
+
+        for record in records:
+            appointment_date = record['appointment_date']
+
+            result.update({
+                BitrixEnum.SPEC_EXECUTION: record['specialist_execution'],
+                BitrixEnum.PHYS_DEPARTMENT: record['physician_department'],
+                BitrixEnum.APPOINTMENT_DATE: self._modify_date_format(appointment_date) if appointment_date else None,
+                BitrixEnum.TOTAL_AMOUNT: result.get(BitrixEnum.TOTAL_AMOUNT, 0) + record['total_amount'],
+            })
+
+        return result
 
     def get_df(self, file, bottom_drops, skip_rows=3):
         path = self.redirect_dir.joinpath(file)
@@ -270,3 +283,10 @@ class FileProcessor:
 
         else:
             return None
+
+    @staticmethod
+    def _modify_date_format(_date):
+        _date = datetime.datetime.strptime(_date, '%d.%m.%y')
+        _date = datetime.datetime.strftime(_date, '%d.%m.%Y %H:%M:%S')
+
+        return _date

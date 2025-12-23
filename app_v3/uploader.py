@@ -20,16 +20,17 @@ class Orchestrator:
         self.browser_manager = BrowserManager()
         self.file_processor = FileProcessor(self.browser_manager.redirect_dir)
 
+        # Флаги
+        self.from_scratch = True
+
         # Файлы
-        self.today_analytics_file = None
+        self.yesterday_analytics_file = None
         self.period_analytics_file = None
         self.users_file = None
         self.specialists_file = None
 
         # Загрузки
-        self.period_choice = None
-
-        self.today_analytics = 'today_analytics'
+        self.yesterday_analytics = 'yesterday_analytics'
         self.period_analytics = 'period_analytics'
         self.specialists = 'specialists'
         self.users = 'users'
@@ -63,14 +64,13 @@ class Orchestrator:
             await self.browser_manager.connect_to_socket()
             print()
 
-            await self._upload_today_analytics()
+            await self._upload_yesterday_analytics()
             await asyncio.sleep(3)
             print()
 
-            if self.period_choice:
-                await self._upload_period_analytics()
-                await asyncio.sleep(3)
-                print()
+            await self._upload_period_analytics()
+            await asyncio.sleep(3)
+            print()
 
             await self._upload_specialists()
             await asyncio.sleep(3)
@@ -85,10 +85,10 @@ class Orchestrator:
             app_logger.info("=" * 60)
 
             self.file_processor.process_users(self.users_file)
-            self.file_processor.process_today_analytics(self.today_analytics_file)
+            self.file_processor.process_yesterday_analytics(self.yesterday_analytics_file)
 
             if self.period_analytics_file:
-                self.file_processor.process_period_analytics(self.period_analytics_file)
+                self.file_processor.process_period_analytics(self.period_analytics_file, self.from_scratch)
 
             self.file_processor.process_specialists(self.specialists_file)
 
@@ -115,28 +115,15 @@ class Orchestrator:
             else:
                 await self.browser_manager.click(action)
 
-    async def  _upload_today_analytics(self):
-        """Загрузка файла аналитик за текущий день."""
+    async def  _upload_yesterday_analytics(self):
+        """Загрузка файла аналитик за вчерашний день."""
 
         app_logger.info("[Orch] Начало загрузки аналитик за вчерашний день")
-        file_name = await self.browser_manager.setup_upload(self.today_analytics)
-        self.today_analytics_file = file_name
+        file_name = await self.browser_manager.setup_upload(self.yesterday_analytics)
+        self.yesterday_analytics_file = file_name
 
-        # Сначала загружаем аналитики за вчерашний день, чтобы сразу обработать косметологию.
+        # Сначала загружаем аналитики за вчерашний день, их грузим всегда.
         for action in MAIN_CONFIG["analytics_actions"]:
-            if action.get("calculate_date"):
-                today = datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
-                choices = action["choices"]
-
-                if today == self.from_scratch_dates["year_first_day"]:
-                    self.period_choice = choices["last_year"]
-                elif today in self.from_scratch_dates["quarters_first_days"]:
-                    self.period_choice = choices[self.quarters_first_days[today]]
-                elif today in self.from_scratch_dates["months_first_week_days"]:
-                    self.period_choice = choices["last_month"]
-                elif today in self.from_scratch_dates["mondays"]:
-                    self.period_choice = choices["last_week"]
-
             await self.browser_manager.click(action)
 
         await self.browser_manager.await_for_download()
@@ -144,19 +131,30 @@ class Orchestrator:
     async def _upload_period_analytics(self):
         """Загрузка файла аналитик за период."""
 
-        # Если сегодня нужен период, грузим ещё один файл.
-        if self.period_choice:
-            app_logger.info("[Orch] Начало загрузки аналитик за период")
-            file_name = await self.browser_manager.setup_upload(self.period_analytics)
-            self.period_analytics_file = file_name
+        app_logger.info("[Orch] Начало загрузки аналитик за период")
+        file_name = await self.browser_manager.setup_upload(self.period_analytics)
+        self.period_analytics_file = file_name
 
-            for action in MAIN_CONFIG["analytics_actions"]:
-                if action.get("calculate_date"):
-                    action["text_to_search"] = self.period_choice
+        for action in MAIN_CONFIG["analytics_actions"]:
+            if action.get("calculate_date"):
+                today = datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+                choices = action["choices"]
 
-                await self.browser_manager.click(action)
+                if today == self.from_scratch_dates["year_first_day"]:
+                    action["text_to_search"] = choices["last_year"]
+                elif today in self.from_scratch_dates["quarters_first_days"]:
+                    action["text_to_search"] = choices[self.quarters_first_days[today]]
+                elif today in self.from_scratch_dates["months_first_week_days"]:
+                    action["text_to_search"] = choices["last_month"]
+                elif today in self.from_scratch_dates["mondays"]:
+                    action["text_to_search"] = choices["last_week"]
+                else:
+                    action["text_to_search"] = choices["yesterday"]
+                    self.from_scratch = False
 
-            await self.browser_manager.await_for_download()
+            await self.browser_manager.click(action)
+
+        await self.browser_manager.await_for_download()
 
     async def _upload_users(self):
         """Запуск формирования отчета по пользователям."""

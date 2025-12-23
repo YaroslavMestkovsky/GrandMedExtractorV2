@@ -1,4 +1,3 @@
-import datetime
 import json
 from typing import Any
 
@@ -72,20 +71,13 @@ class BitrixManager:
         contact = self._get_contact_by_reg_number(reg_num)
 
         if contact:
-            appointment_date = record['appointment_date']
-
-            # FIXME довольно уродская подготовка записи для отправки.
-            #  Однажды нужно переписать на проставление корректных полей на этапе обработки df
-            record = {
-                BitrixEnum.APPOINTMENT_DATE: self._modify_date_format(appointment_date) if appointment_date else None,
-                BitrixEnum.SPEC_EXECUTION: record['specialist_execution'],
-                BitrixEnum.PHYS_DEPARTMENT: record['physician_department'],
-                BitrixEnum.TOTAL_AMOUNT: record['total_amount'],
+            record = record.update({
                 BitrixEnum.CATEGORY_ID: BITRIX_CONFIG['cosmetology']['category_id'],
                 BitrixEnum.STAGE_ID: BITRIX_CONFIG['cosmetology']['stage_id'],
                 BitrixEnum.ASSIGNED_BY_ID: BITRIX_CONFIG['cosmetology']['assigned_by_id'],
                 BitrixEnum.TYPE_ID: BITRIX_CONFIG['cosmetology']['type_id'],
-            }
+            })
+
             deal_id = self.upload_to_bitrix(record)
             self._add_contact_to_deal(deal_id, contact)
 
@@ -173,7 +165,7 @@ class BitrixManager:
             f"@{BitrixEnum.REG_NUM}": reg_nums,
             "CATEGORY_ID": BITRIX_CONFIG['deals']['patients_category_id'],
         }
-        _select = ['*']
+        _select = ['UF_CRM_1744898975']
 
         self.DATA.update({
             "FILTER": _filter,
@@ -237,10 +229,3 @@ class BitrixManager:
             raise
 
         return result
-
-    @staticmethod
-    def _modify_date_format(_date):
-        _date = datetime.datetime.strptime(_date, '%d.%m.%y')
-        _date = datetime.datetime.strftime(_date, '%d.%m.%Y %H:%M:%S')
-
-        return _date

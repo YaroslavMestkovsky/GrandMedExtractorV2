@@ -39,14 +39,14 @@ class BrowserManager:
         self.active_download = None
 
         # Загрузки
-        self.today_analytics = 'today_analytics'
+        self.yesterday_analytics = 'yesterday_analytics'
         self.period_analytics = 'period_analytics'
         self.specialists = 'specialists'
         self.users = 'users'
 
         # Флаги
         self.current_file_uploaded = False
-        self.today_analytics_uploaded = False
+        self.yesterday_analytics_uploaded = False
         self.period_analytics_uploaded = False
         self.specialists_uploaded = False
         self.users_uploaded = False
@@ -131,7 +131,7 @@ class BrowserManager:
         """Подключение обработчиков к целевому WebSocket (через сервис)."""
 
         def on_write_file_end(_payload: str) -> None:
-            if self.active_download == self.today_analytics:
+            if self.active_download == self.yesterday_analytics:
                 self.analytics_uploaded = self.current_file_uploaded = True
             elif self.active_download == self.period_analytics:
                 self.analytics_uploaded = self.current_file_uploaded = True

@@ -17,7 +17,6 @@ ANALYTICS_TO_BITRIX = {
     column.comment: column.name
     for column in [
         Analytics.__table__.columns.registration_number,
-        Analytics.__table__.columns.full_name,
         Analytics.__table__.columns.appointment_date,
         Analytics.__table__.columns.department_execution,
         Analytics.__table__.columns.specialist_execution,

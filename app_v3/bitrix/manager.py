@@ -67,7 +67,7 @@ class BitrixManager:
     def upload_cosmetology_to_bitrix(self, record):
         """Выгрузка сделки по косметологии в Bitrix."""
 
-        reg_num = record['registration_number']
+        reg_num = record.pop('registration_number')
         contact = self._get_contact_by_reg_number(reg_num)
 
         if contact:

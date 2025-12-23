@@ -31,7 +31,7 @@ class FileProcessor:
         df = self.get_df(file, [-1])
         df = self.prepare_analytics_df(df)
 
-        records = self.merge_cosmetology_analytics(df)
+        records = self._aggregate_cosmetology_analytics(df)
         amount = len(records)
 
         for num, record in enumerate(records, 1):
@@ -214,7 +214,7 @@ class FileProcessor:
 
         return df
     
-    def merge_cosmetology_analytics(self, df):
+    def _aggregate_cosmetology_analytics(self, df):
         """Агрегация суммы по аналитикам и подготовка для выгрузки в битрикс."""
 
         records = []
@@ -232,7 +232,7 @@ class FileProcessor:
         raw_records = df.to_dict("records")
         
         for record in raw_records:
-            records_map[f"'{record['registration_number']}{record['full_name']}'"].append(record)
+            records_map[f"'{record['registration_number']}{record['specialist_execution']}'"].append(record)
             
         for records_list in records_map.values():
             records.append(self._merge_cosmetology_records(records_list))
@@ -241,7 +241,7 @@ class FileProcessor:
         app_logger.info(msg)
         reporter.add_info(msg)
 
-        return df
+        return records
     
     def _merge_cosmetology_records(self, records):
         """Объединение данных для выгрузки в косметологию."""
@@ -252,6 +252,7 @@ class FileProcessor:
             appointment_date = record['appointment_date']
 
             result.update({
+                'registration_number': record['registration_number'],
                 BitrixEnum.SPEC_EXECUTION: record['specialist_execution'],
                 BitrixEnum.PHYS_DEPARTMENT: record['physician_department'],
                 BitrixEnum.APPOINTMENT_DATE: self._modify_date_format(appointment_date) if appointment_date else None,

@@ -99,7 +99,6 @@ class FileProcessor:
 
         if new_records.empty:
             msg = "Нет новых записей по специалистам для загрузки"
-            # self._add_message(msg) # todo бот
             app_logger.info(f"[FPr] {msg}")
         else:
             # Конвертируем записи в список словарей
@@ -107,7 +106,6 @@ class FileProcessor:
             new_records = new_records.map(lambda x: "" if x is pd.NaT else x)
             records_to_insert = new_records.to_dict("records")
 
-            # self.messages['statistics']['specialists']['records'] = len(records_to_insert) todo bot
             self.specialists_repository.bulk_upload(records_to_insert)
 
         app_logger.info("[FPr] Специалисты загружены.")
@@ -141,7 +139,6 @@ class FileProcessor:
 
         if skipped_count > 0:
             msg = f"Пропущено уже загруженных пациентов: {skipped_count}"
-            # self._add_message(msg) # todo бот
             app_logger.info(f"[BitrixManager] {msg}")
 
         amount = len(records_to_upload)
@@ -156,12 +153,9 @@ class FileProcessor:
 
             print()
             msg = f"Загружено новых записей по пациентам: {amount}"
-            # self._add_message(msg) # todo бот
-            # self.messages['statistics']['users']['records'] = amount
             app_logger.info(f"[FPr] {msg}")
         else:
             msg = "Нет новых записей по пациентам для загрузки"
-            # self._add_message(msg) # todo bot
             app_logger.info(f"[FPr] {msg}")
 
     def prepare_analytics_df(self, df):

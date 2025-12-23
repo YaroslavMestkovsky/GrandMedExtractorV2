@@ -114,7 +114,6 @@ class BrowserManager:
         except Exception as e:
             error_msg = f"Не удалось настроить перенаправление загрузок: {str(e)}"
             app_logger.warning(f"[BrM] {error_msg}")
-            # self._add_error(error_msg) # TODO бот
 
         app_logger.info("[BrM] Браузер успешно инициализирован")
 
@@ -150,7 +149,6 @@ class BrowserManager:
             error_msg = "Список WebSocket соединений пуст. Возможно, страница ещё не загрузилась полностью."
             app_logger.error(f"[BrM] {error_msg}")
 
-            # self._add_error(error_msg) # TODO бот
             raise RuntimeError(error_msg)
 
         app_logger.debug(f"[BrM] Найдено {len(self.websockets_list)} WebSocket соединений")
@@ -166,7 +164,6 @@ class BrowserManager:
         except Exception as e:
             error_msg = f"Ошибка при подключении к WebSocket: {str(e)}"
             app_logger.error(f"[BrM] {error_msg}")
-            # self._add_error(error_msg) # TODO бот
             raise
 
     async def await_for_download(self):
@@ -185,9 +182,7 @@ class BrowserManager:
         if not self.current_file_uploaded:
             error_msg = f"Таймаут загрузки ({max_wait_time} сек)"
             app_logger.error(f"[BrM] {error_msg}")
-            # self._add_error(error_msg) # todo бот
         else:
-            # self.report_messages['statistics']['analytics']['uploaded'] = True # todo бот
             app_logger.info("[BrM] Файл успешно загружен")
 
     async def _process_download_via_http(self) -> None:
@@ -219,12 +214,10 @@ class BrowserManager:
             else:
                 error_msg = f"Не удалось скачать файл '{self.filename}' через HTTP"
                 app_logger.error(f"[BrM] {error_msg}")
-                # self._add_error(error_msg) # TODO бот
 
         except Exception as e:
             error_msg = f"Ошибка при обработке HTTP-скачивания файла '{self.filename}': {str(e)}"
             app_logger.error(f"[BrM] {error_msg}", exc_info=True)
-            # self._add_error(error_msg) # TODO бот
 
     async def _download_file_via_http(self) -> bool:
         """Скачать файл через HTTP-запрос используя параметры из WebSocket."""

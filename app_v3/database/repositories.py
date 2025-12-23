@@ -33,13 +33,11 @@ class BaseRepository:
 
             print()
             msg = f"Загружено записей: {total_rows}"
-            # self._add_message(msg) # todo бот
             app_logger.info(f"[BRep] {msg}")
         except Exception as e:
             self.session.rollback()
 
             err = f"Ошибка при загрузке данных: {str(e)}"
-            # self._add_error(err) # todo бот
             app_logger.error(f"[BRep] {err}", exc_info=True)
             raise
 

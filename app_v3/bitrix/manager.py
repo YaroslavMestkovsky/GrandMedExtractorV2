@@ -27,6 +27,9 @@ class BitrixManager:
         "start": 0,
     }
 
+    def __init__(self):
+        self.not_found_contacts = []
+
     def upload_to_bitrix(self, record):
         """Выгрузка сделки по юзерам в Bitrix."""
 
@@ -65,7 +68,6 @@ class BitrixManager:
     def upload_cosmetology_to_bitrix(self, record):
         """Выгрузка сделки по косметологии в Bitrix."""
 
-        not_found_contacts = []
         reg_num = record['registration_number']
         contact = self._get_contact_by_reg_number(reg_num)
 
@@ -88,7 +90,7 @@ class BitrixManager:
             self._add_contact_to_deal(deal_id, contact)
 
         else:
-            not_found_contacts.append(reg_num)
+            self.not_found_contacts.append(reg_num)
 
     def _get_contact_by_reg_number(self, reg_num):
         """Находим контакт юзера по его рег. номеру."""

@@ -8,6 +8,7 @@ from app_v3.database.enums import ANALYTICS_FIELDS, SPECIALISTS_FIELDS, BitrixEn
 from app_v3.database.models import Analytics
 from app_v3.database.repositories import AnalyticsRepository, SpecialistsRepository
 from app_v3.utils.logger import app_logger
+from app_v3.utils.reporter import reporter
 
 
 class FileProcessor:
@@ -39,6 +40,12 @@ class FileProcessor:
         for num, record in enumerate(records, 1):
             print(f"\r[FPr] Выгрузка Косметологии: {num}/{amount}", end="", flush=True)
             self.bitrix_manager.upload_cosmetology_to_bitrix(record)
+
+        reporter.add_info(
+            f'Выгружено {amount - len(self.bitrix_manager.not_found_contacts)}/{amount} записей по Косметологии')
+
+        if self.bitrix_manager.not_found_contacts:
+            reporter.add_info(f'Не найденные контакты: \n```{self.bitrix_manager.not_found_contacts}```')
 
         print()
 
@@ -94,8 +101,10 @@ class FileProcessor:
         df = df.dropna(subset=["material_number"])
         new_records = df[~df["material_number"].isin(existing_numbers)]
 
-        final_count = df.shape[0]
-        app_logger.info(f"[FPr] Отобрано {final_count}/{initial_count} записей специалистов")
+        final_count = len(new_records)
+        msg = f"[FPr] Отобрано {final_count}/{initial_count} записей специалистов"
+        app_logger.info(msg)
+        reporter.add_info(msg)
 
         if new_records.empty:
             msg = "Нет новых записей по специалистам для загрузки"
@@ -154,6 +163,7 @@ class FileProcessor:
             print()
             msg = f"Загружено новых записей по пациентам: {amount}"
             app_logger.info(f"[FPr] {msg}")
+            reporter.add_info(msg)
         else:
             msg = "Нет новых записей по пациентам для загрузки"
             app_logger.info(f"[FPr] {msg}")
@@ -200,7 +210,9 @@ class FileProcessor:
         df = df.map(lambda x: "" if x is pd.NaT else x)
 
         final_count = df.shape[0]
-        app_logger.info(f"[FPr] Отобрано {final_count}/{initial_count} записей аналитик")
+        msg = f"[FPr] Отобрано {final_count}/{initial_count} записей аналитик"
+        app_logger.info(msg)
+        reporter.add_info(msg)
 
         return df
     
@@ -229,8 +241,9 @@ class FileProcessor:
         )["total_amount"].sum()
         
         final_count = df.shape[0]
-        app_logger.info(
-            f"[FPr] Отобрано {final_count}/{initial_count} записей аналитик Косметологии для выгрузки в Bitrix")
+        msg = f"[FPr] Отобрано {final_count}/{initial_count} записей аналитик Косметологии для выгрузки в Bitrix"
+        app_logger.info(msg)
+        reporter.add_info(msg)
 
         return df
 

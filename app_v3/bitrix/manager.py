@@ -191,7 +191,7 @@ class BitrixManager:
         return reg_nums
 
     def modify_patients_record(self, record):
-        record["PATIENTS_CATEGORY_ID"] = BITRIX_CONFIG['deals']['patients_category_id']
+        record["CATEGORY_ID"] = BITRIX_CONFIG['deals']['patients_category_id']
 
     def _get_response(self, method, url):
         """Получение ответа от Bitrix API с пагинацией."""

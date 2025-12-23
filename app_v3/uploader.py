@@ -86,10 +86,7 @@ class Orchestrator:
 
             self.file_processor.process_users(self.users_file)
             self.file_processor.process_yesterday_analytics(self.yesterday_analytics_file)
-
-            if self.period_analytics_file:
-                self.file_processor.process_period_analytics(self.period_analytics_file, self.from_scratch)
-
+            self.file_processor.process_period_analytics(self.period_analytics_file, self.from_scratch)
             self.file_processor.process_specialists(self.specialists_file)
 
             await asyncio.sleep(10)

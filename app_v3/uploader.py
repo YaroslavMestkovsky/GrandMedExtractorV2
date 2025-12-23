@@ -84,12 +84,12 @@ class Orchestrator:
             app_logger.info("[Orch] Начало обработки загруженных данных.")
             app_logger.info("=" * 60)
 
+            self.file_processor.process_users(self.users_file)
             self.file_processor.process_today_analytics(self.today_analytics_file)
 
             if self.period_analytics_file:
                 self.file_processor.process_period_analytics(self.period_analytics_file)
 
-            self.file_processor.process_users(self.users_file)
             self.file_processor.process_specialists(self.specialists_file)
 
             await asyncio.sleep(10)
@@ -102,6 +102,7 @@ class Orchestrator:
         duration = end - start
 
         reporter.add_info(f'\nВремя выполнения: {duration}')
+        reporter.send_message()
 
     async def _log_in(self):
         """Вход в систему."""

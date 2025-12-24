@@ -2,10 +2,14 @@ import json
 from typing import Any
 
 import requests
+import urllib3
 
 from app_v3.database.enums import BitrixEnum
 from app_v3.utils.config import app_config
 from app_v3.utils.logger import app_logger
+
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 BITRIX_CONFIG = app_config.bitrix
@@ -71,7 +75,7 @@ class BitrixManager:
         contact = self._get_contact_by_reg_number(reg_num)
 
         if contact:
-            record = record.update({
+            record.update({
                 BitrixEnum.CATEGORY_ID: BITRIX_CONFIG['cosmetology']['category_id'],
                 BitrixEnum.STAGE_ID: BITRIX_CONFIG['cosmetology']['stage_id'],
                 BitrixEnum.ASSIGNED_BY_ID: BITRIX_CONFIG['cosmetology']['assigned_by_id'],

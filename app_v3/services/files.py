@@ -120,7 +120,7 @@ class FileProcessor:
     def process_users(self, file):
         app_logger.info("[FPr] Загрузка пациентов.")
 
-        df = self.get_df(file, [-1], skip_rows=2)
+        df = self.get_df(file, [], skip_rows=2)
         initial_count = df.shape[0]
 
         columns_to_keep = [col for col in [col.strip() for col in df.columns] if col in BitrixEnum.NAME_TO_FIELD]

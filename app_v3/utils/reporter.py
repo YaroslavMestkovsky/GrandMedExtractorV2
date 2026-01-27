@@ -17,7 +17,7 @@ class TelegramService:
         self.INFO.append(info)
 
     def add_exception(self, ex):
-        self.EXCEPTIONS.append(ex)
+        self.EXCEPTIONS.append(str(ex))
 
     def send_message(self):
         yesterday_str = date.today().strftime("%d.%m.%Y")

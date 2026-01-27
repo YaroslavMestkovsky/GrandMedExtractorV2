@@ -222,14 +222,14 @@ class BitrixManager:
         except requests.exceptions.RequestException as e:
             error_msg = f"Ошибка HTTP-запроса к Bitrix API: {str(e)}"
             app_logger.error(f"[BMn] {error_msg}")
-            raise
+            return []
         except json.JSONDecodeError as e:
             error_msg = "Ошибка декодирования JSON из ответа сервера"
             app_logger.error(f"[BMn] {error_msg}: {str(e)}")
-            raise
+            return []
         except Exception as e:
             error_msg = f"Неизвестная ошибка при запросе к Bitrix API: {str(e)}"
             app_logger.error(f"[BMn] {error_msg}", exc_info=True)
-            raise
+            return []
 
         return result

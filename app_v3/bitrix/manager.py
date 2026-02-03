@@ -99,7 +99,7 @@ class BitrixManager:
                 headers=self.HEADERS,
                 data=json.dumps({
                     'SELECT': ['ID'],
-                    'FILTER': {BitrixEnum.CONTACT_REG_NUM: reg_num},
+                    'FILTER': {f'={BitrixEnum.CONTACT_REG_NUM}': f'{reg_num}'},
                     'ORDER': {'DATE_CREATE': 'ASC'},
                     'start': 0,
                 }),

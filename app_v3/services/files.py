@@ -135,9 +135,8 @@ class FileProcessor:
         final_count = df.shape[0]
         app_logger.info(f"[FPr] Отобрано {final_count}/{initial_count} записей по пациентам")
 
-        records = df.to_dict("records")
+        records = [record for record in df.to_dict("records") if record[BitrixEnum.REG_NUM]]
         reg_nums = [rec[BitrixEnum.REG_NUM] for rec in records]
-        reg_nums = [reg_num for reg_num in reg_nums if reg_num]
 
         uploaded_by_reg_num = self.bitrix_manager.get_records_by_reg_nums(reg_nums)
         records_to_upload = [rec for rec in records if rec[BitrixEnum.REG_NUM] not in uploaded_by_reg_num]
@@ -287,7 +286,11 @@ class FileProcessor:
 
     @staticmethod
     def _modify_date_format(_date):
-        _date = datetime.datetime.strptime(_date, '%d.%m.%y')
+        try:
+            _date = datetime.datetime.strptime(_date, '%d.%m.%y')
+        except ValueError:
+            _date = datetime.datetime.strptime(_date, '%d.%m.%Y')
+
         _date = datetime.datetime.strftime(_date, '%d.%m.%Y %H:%M:%S')
 
         return _date
